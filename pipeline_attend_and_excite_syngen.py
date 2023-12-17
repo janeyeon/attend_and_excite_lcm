@@ -587,7 +587,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             batch_size = prompt_embeds.shape[0]
 
         device = self._execution_device
-        guidance_scale = 1
+        guidance_scale = 2.5
         # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
         # of the Imagen paper https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
         # corresponds to doing no classifier free guidance.
@@ -627,7 +627,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         # self.attention_store = AttentionStore(attn_res)
         # self.register_attention_control()
 
-         # NEW
+        #  # NEW
         text_embeddings = (
             prompt_embeds[batch_size * num_images_per_prompt:] if do_classifier_free_guidance else prompt_embeds
         )
@@ -659,8 +659,10 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                     latents = latents.clone().detach().requires_grad_(True)
 
                     # Forward pass of denoising with text conditioning
+                    # noise_pred_text = self.unet(latents, t,
+                    #                             encoder_hidden_states=prompt_embeds, cross_attention_kwargs=cross_attention_kwargs).sample
                     noise_pred_text = self.unet(latents, t,
-                                                encoder_hidden_states=prompt_embeds, cross_attention_kwargs=cross_attention_kwargs).sample
+                                                encoder_hidden_states=text_embeddings, cross_attention_kwargs=cross_attention_kwargs).sample
                     self.unet.zero_grad()
 
                     # Get max activation value for each subject token
@@ -686,6 +688,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                         syngen_loss = self._syngen_step(
                             latents,
                             text_embeddings,
+                            # prompt_embeds,
                             t,
                             i,
                             syngen_step_size,
@@ -711,7 +714,8 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                                 indices_to_alter=indices_to_alter,
                                 loss=loss,
                                 threshold=thresholds[i],
-                                text_embeddings=prompt_embeds,
+                                # text_embeddings=prompt_embeds,
+                                text_embeddings=text_embeddings,
                                 text_input=text_inputs,
                                 attention_store=attention_store,
                                 step_size=scale_factor * np.sqrt(scale_range[i]),
