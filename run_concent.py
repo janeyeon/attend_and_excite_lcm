@@ -2,7 +2,7 @@ import sys
 sys.path.append(' ')
 import time
 from typing import List
-
+import pdb
 import pprint
 import pyrallis
 import torch
@@ -86,33 +86,34 @@ def main(config: RunConfig):
         dataset = pd.read_csv(config.dataset_path)
         dataset_name = config.dataset_path.split("/")[-1].split('.')[0]
         ts = time.time()
-        for i in tqdm(range(len(dataset)), desc="Prompt idx"):
-            dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}"
-            dataset_prompt_output_path.mkdir(exist_ok=True, parents=True)
-            img_path = dataset_prompt_output_path / f'{METHOD}_{config.model}_{seed}.png'
-            if img_path.exists():
-                continue
-                
+        for i in tqdm(range(len(dataset)), desc="Prompt idx"):                
             config.prompt = dataset.iloc[i].prompt
             token_indices = dataset.iloc[i].item_indices
+            token_indices = eval(token_indices) if isinstance(token_indices, str) else token_indices
             for seed in config.seeds:
+                dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}"
+                dataset_prompt_output_path.mkdir(exist_ok=True, parents=True)
+                img_path = dataset_prompt_output_path / f'{METHOD}_{config.model}_{seed}.png'
+                if img_path.exists():
+                    continue
+                    
                 print(f"Seed: {seed}")
-                try:
-                    ts = time.time()
-                    g = torch.Generator('cuda').manual_seed(seed)
-                    controller = AttentionStore()
-                    image = run_on_prompt(prompt=config.prompt,
-                                          model=stable,
-                                          controller=controller,
-                                          token_indices=token_indices,
-                                          seed=g,
-                                          config=config)
-                    te = time.time()
-                    image.save(img_path)
-                    time_total += (te-ts)
-                    count += 1
-                except:
-                    print('FAILED:',i, config.prompt)
+                # try:
+                ts = time.time()
+                g = torch.Generator('cuda').manual_seed(seed)
+                controller = AttentionStore()
+                image = run_on_prompt(prompt=config.prompt,
+                                      model=stable,
+                                      controller=controller,
+                                      token_indices=token_indices,
+                                      seed=g,
+                                      config=config)
+                te = time.time()
+                image.save(img_path)
+                time_total += (te-ts)
+                count += 1
+                # except:
+                #     print('FAILED:',i, config.prompt)
                 
         print(f"*** Total time spent: {time_total:.4f} ***")
         print(f"*** For one image: {time_total/count:.4f}")

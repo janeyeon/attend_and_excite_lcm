@@ -81,6 +81,7 @@ imagenet_templates = [
     'a photo of a cool {}.',
     'a photo of a small {}.',
     'a tattoo of the {}.',
+    '{}.'
 ]
 
 
