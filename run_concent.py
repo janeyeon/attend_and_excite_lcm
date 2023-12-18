@@ -1,24 +1,27 @@
-import pprint
-from typing import List
-
-import pyrallis
-import torch
-from PIL import Image
-from config import RunConfig
-from pipeline_attend_and_excite_concent import AttendAndExciteConcentPipeline
 import sys
 sys.path.append(' ')
+import time
+from typing import List
+
+import pprint
+import pyrallis
+import torch
+import pandas as pd
+from tqdm import tqdm
+from PIL import Image
+from diffusers import LCMScheduler
+from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
+
+from config import RunConfig
+from pipeline_attend_and_excite_concent import AttendAndExciteConcentPipeline
 from utils.ptp_utils import AttentionStore
 from utils import ptp_utils
 from utils import vis_utils
-from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
-import warnings
-from diffusers import LCMScheduler
 
+import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 METHOD = "Concent"
-
 
 def load_model(config: RunConfig):
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
