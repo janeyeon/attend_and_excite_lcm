@@ -55,14 +55,15 @@ def generate_prompt(num_phrases):
 
     colors = [
         "red", "orange", "yellow", "green", "blue", "purple", "pink", "brown", "gray", "black",
-        "white", "beige", "teal"]
+        "white", "beige", "teal"
+    ]
 
     animal_modifiers = ["furry", "baby", "spotted", "sleepy"]
     object_modifiers = ["modern", "spotted", "wooden", "metal", "curved", "spiky", "checkered"]
     fruit_modifiers = ["sliced", "skewered"]
-    human_modifiers = {"age": ['young', 'old', 'middle-aged', 'adolescent'],
-                       "emotion": ['happy', 'sad', 'angry', 'surprised', 'sleepy'],
-                       "status": ['lying', 'sitting', 'standing']}
+    human_modifiers = {"age": ['young', 'old', 'middle-aged', 'adolescent'],  
+                       "emotion": ['happy', 'sad', 'angry', 'surprised', 'sleepy'],  
+                       "status": ['lying', 'sitting', 'standing'],                   }
 
 
     phrases = []

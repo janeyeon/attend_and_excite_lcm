@@ -25,10 +25,17 @@ warnings.filterwarnings("ignore", category=UserWarning)
 METHOD = 'SynGen'
 
 def load_model(config: RunConfig):
+    def disabled_safety_checker(images, clip_input):
+        if len(images.shape)==4:
+            num_images = images.shape[0]
+            return images, [False]*num_images
+        else:
+            return images, False
+
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     if config.model == 'LCM':
-        safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="safety_checker")
-        stable = AttendAndExciteSynGenPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7",safety_checker=safety_checker, dtype=torch.float32).to(device)
+        # safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="safety_checker")
+        stable = AttendAndExciteSynGenPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", dtype=torch.float32).to(device)
         tokenizer = stable.tokenizer
         print(F"tokenizer: {type(tokenizer)}")
         stable.scheduler = LCMScheduler.from_config(stable.scheduler.config)
@@ -36,6 +43,8 @@ def load_model(config: RunConfig):
     else:
         stable_diffusion_version = "runwayml/stable-diffusion-v1-5"
         stable = AttendAndExciteSynGenPipeline.from_pretrained(stable_diffusion_version).to(device)
+    stable.safety_checker = disabled_safety_checker
+    
     return stable
 
 

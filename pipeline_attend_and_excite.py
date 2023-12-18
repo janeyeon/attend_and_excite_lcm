@@ -12,19 +12,14 @@ from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from diffusers.configuration_utils import FrozenDict
 from diffusers.models import AutoencoderKL, UNet2DConditionModel
 from diffusers.schedulers import KarrasDiffusionSchedulers
-#from diffusers.utils import deprecate, is_accelerate_available, logging, randn_tensor, replace_example_docstring
-from diffusers.utils import logging, deprecate, is_accelerate_available, replace_example_docstring
+from diffusers.utils import deprecate, is_accelerate_available, logging, replace_example_docstring
 from diffusers.utils.torch_utils import randn_tensor
 
-#from diffusers.pipelines.pipeline_utils import DiffusionPipeline
-#from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
-#from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
-
-#from diffusers.pipelines.stable_diffusion import StableDiffusionPipeline
-from diffusers import StableDiffusionPipeline
-from diffusers import DiffusionPipeline
-from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput#, StableDiffusionSafetyChecker
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
+
+from diffusers.pipelines.stable_diffusion import StableDiffusionPipeline
 
 from utils.gaussian_smoothing import GaussianSmoothing
 from utils.ptp_utils import AttentionStore, aggregate_attention
@@ -229,7 +224,7 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
 
     def _aggregate_and_get_max_attention_per_token(self, attention_store: AttentionStore,
                                                    indices_to_alter: List[int],
-                                                   attention_res: int = 24,
+                                                   attention_res: int = 16,
                                                    smooth_attentions: bool = False,
                                                    sigma: float = 0.5,
                                                    kernel_size: int = 3,
@@ -277,7 +272,7 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
                                            attention_store: AttentionStore,
                                            step_size: float,
                                            t: int,
-                                           attention_res: int = 24,
+                                           attention_res: int = 16,
                                            smooth_attentions: bool = True,
                                            sigma: float = 0.5,
                                            kernel_size: int = 3,
@@ -355,10 +350,10 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
             prompt: Union[str, List[str]],
             attention_store: AttentionStore,
             indices_to_alter: List[int],
-            attention_res: int = 24,
-            height: int = 512,
-            width: int = 512,
-            num_inference_steps: int = 4,
+            attention_res: int = 16,
+            height: Optional[int] = None,
+            width: Optional[int] = None,
+            num_inference_steps: int = 50,
             guidance_scale: float = 7.5,
             negative_prompt: Optional[Union[str, List[str]]] = None,
             num_images_per_prompt: Optional[int] = 1,
@@ -449,10 +444,9 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
             (nsfw) content, according to the `safety_checker`.
             :type attention_store: object
         """
-        #print(self.unet.config.sample_size * self.vae_scale_factor)
         # 0. Default height and width to unet
-        #height = height or self.unet.config.sample_size * self.vae_scale_factor
-        #width = width or self.unet.config.sample_size * self.vae_scale_factor
+        # height = height or self.unet.config.sample_size * self.vae_scale_factor
+        # width = width or self.unet.config.sample_size * self.vae_scale_factor
         height = 768
         width = 768
         
@@ -464,15 +458,13 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
         # 2. Define call parameters
         self.prompt = prompt
         if prompt is not None and isinstance(prompt, str):
-            batch_size = 0
+            batch_size = 1
         elif prompt is not None and isinstance(prompt, list):
             batch_size = len(prompt)
         else:
             batch_size = prompt_embeds.shape[0]
 
         device = self._execution_device
-        guidance_scale =2.5
-        # guidance_scale =1
         # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
         # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
         # corresponds to doing no classifier free guidance.
@@ -490,11 +482,11 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
         )
 
         # 4. Prepare timesteps
-        self.scheduler.set_timesteps(4, device=device)
+        self.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps = self.scheduler.timesteps
 
         # 5. Prepare latent variables
-        num_channels_latents = self.unet.config.in_channels
+        num_channels_latents = self.unet.in_channels
         latents = self.prepare_latents(
             batch_size * num_images_per_prompt,
             num_channels_latents,
@@ -515,8 +507,8 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
             max_iter_to_alter = len(self.scheduler.timesteps) + 1
 
         # 7. Denoising loop
-        num_warmup_steps = len(timesteps) - 4 * self.scheduler.order
-        with self.progress_bar(total=4) as progress_bar:
+        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
+        with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
 
                 with torch.enable_grad():
@@ -589,7 +581,6 @@ class AttendAndExcitePipeline(StableDiffusionPipeline):
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
-
 
                 # call the callback, if provided
                 if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
