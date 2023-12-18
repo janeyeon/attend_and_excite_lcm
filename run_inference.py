@@ -52,7 +52,7 @@ def run_on_prompt(prompt: str,
     prompt = [prompt]
     outputs = model(prompt=prompt,
                     attention_store=controller,
-                    indices_to_alter=token_indices,
+                    indices_to_alter=[],
                     attention_res=config.attention_res,
                     guidance_scale=config.guidance_scale,
                     generator=seed,

@@ -15,6 +15,8 @@ from utils import vis_utils
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 import warnings
 from diffusers import LCMScheduler
+import numpy as np
+import random
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -76,12 +78,14 @@ def run_on_prompt(prompt: str,
 
 @pyrallis.wrap()
 def main(config: RunConfig):
-    torch.autograd.set_detect_anomaly(True)
     stable = load_model(config)
     token_indices = get_indices_to_alter(stable, config.prompt) if config.token_indices is None else config.token_indices
     images = []
     
-    for seed in config.seeds:
+    # for seed in config.seeds:
+    # seed_list = np.random.randint(low=0,high=1000000, size=(100))
+    for _ in range(100):
+        seed = random.randint(0, 10000000)
         print(f"Seed: {seed}")
         g = torch.Generator('cuda').manual_seed(seed)
         controller = AttentionStore()
