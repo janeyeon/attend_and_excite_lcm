@@ -7,6 +7,7 @@ import pprint
 import pyrallis
 import torch
 import pandas as pd
+from tqdm import tqdm
 from PIL import Image
 from diffusers import LCMScheduler
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
@@ -89,21 +90,25 @@ def main(config: RunConfig):
         dataset = pd.read_csv(config.dataset_path)
         dataset_name = config.dataset_path.split("/")[-1].split('.')[0]
         ts = time.time()
-        for i in range(len(dataset)):
+        for i in tqdm(range(len(dataset)), desc="Prompt idx"):
+            
             config.prompt = dataset.iloc[i].prompt
             token_indices = dataset.iloc[i].item_indices
             for seed in config.seeds:
                 print(f"Seed: {seed}")
-                g = torch.Generator('cuda').manual_seed(seed)
-                controller = AttentionStore()
-                image = run_on_prompt(prompt=config.prompt,
-                                      model=stable,
-                                      controller=controller,
-                                      token_indices=token_indices,
-                                      seed=g,
-                                      config=config)
-                dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}"
-                dataset_prompt_output_path.mkdir(exist_ok=True, parents=True)
+                try:
+                    g = torch.Generator('cuda').manual_seed(seed)
+                    controller = AttentionStore()
+                    image = run_on_prompt(prompt=config.prompt,
+                                          model=stable,
+                                          controller=controller,
+                                          token_indices=token_indices,
+                                          seed=g,
+                                          config=config)
+                    dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}"
+                    dataset_prompt_output_path.mkdir(exist_ok=True, parents=True)
+                except:
+                    print('FAILED:',i, config.prompt)
                 image.save(dataset_prompt_output_path / f'SynGen_{config.model}_{seed}.png')
         te = time.time()
         print(f"*** Total time spent: {te-ts:.4f} ***")
