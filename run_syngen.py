@@ -24,6 +24,7 @@ def load_model(config: RunConfig):
     safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="safety_checker")
     stable = AttendAndExciteSynGenPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7",safety_checker=safety_checker, dtype=torch.float32).to(device)
     tokenizer = stable.tokenizer
+    print(F"tokenizer: {type(tokenizer)}")
     stable.scheduler = LCMScheduler.from_config(stable.scheduler.config)
     stable.scheduler.set_timesteps(num_inference_steps=config.n_inference_steps,                                   original_inference_steps=50,device=device)
     return stable
@@ -54,7 +55,7 @@ def run_on_prompt(prompt: str,
     prompt = [prompt]
     outputs = model(prompt=prompt,
                     attention_store=controller,
-                    indices_to_alter=token_indices,
+                    indices_to_alter=[],
                     attention_res=config.attention_res,
                     guidance_scale=config.guidance_scale,
                     generator=seed,
@@ -67,7 +68,8 @@ def run_on_prompt(prompt: str,
                     smooth_attentions=config.smooth_attentions,
                     sigma=config.sigma,
                     kernel_size=config.kernel_size,
-                    sd_2_1=config.sd_2_1)
+                    sd_2_1=config.sd_2_1, 
+                    tokenizer=model.tokenizer)
     image = outputs.images[0]
     return image
 

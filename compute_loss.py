@@ -1,6 +1,7 @@
 import torch.distributions as dist
 from typing import List, Dict
 import itertools
+import torch
 
 start_token = "<|startoftext|>"
 end_token = "<|endoftext|>"
@@ -257,13 +258,15 @@ def calculate_negative_loss(
 def get_indices(tokenizer, prompt: str) -> Dict[str, int]:
     """Utility function to list the indices of the tokens you wish to alter"""
     ids = tokenizer(prompt).input_ids
+    ids = torch.tensor(ids).squeeze().tolist()
     print(f"ids: {ids}")
     indices = {
         i: tok
         for tok, i in zip(
-            tokenizer.convert_ids_to_tokens(ids[0]), range(len(ids))
+            tokenizer.convert_ids_to_tokens(ids), range(len(ids))
         )
     }
+    print(f"indices: {indices}")
     return indices
 
 def get_attention_map_index_to_wordpiece(tokenizer, prompt):

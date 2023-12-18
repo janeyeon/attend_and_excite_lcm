@@ -81,21 +81,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
     """
     _optional_components = ["safety_checker", "feature_extractor"]
 
-    # def __init__(self,
-    #              vae: AutoencoderKL,
-    #              text_encoder: CLIPTextModel,
-    #              tokenizer: CLIPTokenizer,
-    #              unet: UNet2DConditionModel,
-    #              scheduler: KarrasDiffusionSchedulers,
-    #              safety_checker: StableDiffusionSafetyChecker,
-    #              feature_extractor: CLIPImageProcessor,
-    #              requires_safety_checker: bool = True,
-    #              ):
-    #     super().__init__(vae, text_encoder, tokenizer, unet, scheduler, safety_checker, feature_extractor,
-    #                  requires_safety_checker)
 
-        
-    #     # self.doc = ""#self.parser(prompt)
 
     
 
@@ -111,27 +97,6 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         return latents
 
 
-    # def register_attention_control(self):
-    #     attn_procs = {}
-    #     cross_att_count = 0
-    #     for name in self.unet.attn_processors.keys():
-    #         if name.startswith("mid_block"):
-    #             place_in_unet = "mid"
-    #         elif name.startswith("up_blocks"):
-    #             place_in_unet = "up"
-    #         elif name.startswith("down_blocks"):
-    #             place_in_unet = "down"
-    #         else:
-    #             continue
-
-    #         cross_att_count += 1
-    #         attn_procs[name] = AttendExciteAttnProcessor(
-    #             attnstore=attention_store, place_in_unet=place_in_unet
-    #         )
-
-     
-    #     self.unet.set_attn_processor(attn_procs)
-    #     self.attention_store.num_att_layers = cross_att_count
 
     def _encode_prompt(
         self,
@@ -489,6 +454,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             sigma: float = 0.5,
             kernel_size: int = 3,
             sd_2_1: bool = False,
+            tokenizer = None
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -561,7 +527,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         # 0. Default height and width to unet
         #height = height or self.unet.config.sample_size * self.vae_scale_factor
         #width = width or self.unet.config.sample_size * self.vae_scale_factor
-
+        self.tokenizer = tokenizer
         self.parser = spacy.load("en_core_web_trf")
         # self.subtrees_indices = None
         # self.doc = None
@@ -571,6 +537,16 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         num_inference_steps = 4
 
         self.doc = self.parser(prompt[0])
+
+        self.subtrees_indices = self._extract_attribution_indices(prompt)
+        subtrees_indices = self.subtrees_indices
+        
+
+        for subtree_indices in subtrees_indices:
+            noun, modifier = split_indices(subtree_indices)
+            indices_to_alter.append(noun[0])
+
+        print(f"Indices to alter: {indices_to_alter}")
         
         # 1. Check inputs. Raise error if not correct
         self.check_inputs(
@@ -697,9 +673,8 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                             max_iter_to_alter=25,
                             # layouts=layouts, 
                             # layout_count=layout_count, 
-                            indices_to_alter=indices_to_alter,
-                            attention_store=attention_store
-
+                            attention_store=attention_store, 
+                            timestep = i
                         )
 
 
@@ -789,8 +764,8 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             cross_attention_kwargs,
             prompt,
             max_iter_to_alter=25,
-            indices_to_alter=None,
-            attention_store=None
+            attention_store=None, 
+            timestep=None
 
     ):
         with torch.enable_grad():
@@ -812,27 +787,16 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                 # Get attention maps
                 attention_maps = self._aggregate_and_get_attention_maps_per_token(attention_store=attention_store)
                 
-                loss = self._compute_syngen_loss(attention_maps=attention_maps, prompt=prompt, indices_to_alter=indices_to_alter)
-        #         # Perform gradient update
-        #         if i < max_iter_to_alter:
-        #             if loss != 0:
-        #                 latent = self._update_syngen_latent(
-        #                     latents=latent, loss=loss, step_size=step_size
-        #                 )
-        #             logger.info(f"Iteration {i} | Loss: {loss:0.4f}")
-
-        #     updated_latents.append(latent)
-
-        # latents = torch.cat(updated_latents, dim=0)
+                loss = self._compute_syngen_loss(attention_maps=attention_maps, prompt=prompt, timestep=timestep)
 
         return loss
 
 
     def _compute_syngen_loss(
-            self, attention_maps: List[torch.Tensor], prompt: Union[str, List[str]], indices_to_alter
+            self, attention_maps: List[torch.Tensor], prompt: Union[str, List[str]], timestep
     ) -> torch.Tensor:
         attn_map_idx_to_wp = get_attention_map_index_to_wordpiece(self.tokenizer, prompt)
-        loss = self._attribution_loss(attention_maps, prompt, attn_map_idx_to_wp, indices_to_alter)
+        loss = self._attribution_loss(attention_maps, prompt, attn_map_idx_to_wp, timestep)
 
         return loss
     
@@ -849,9 +813,10 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
 
 
         print(f"Final pairs collected: {pairs}")
-        prompt = (prompt)
-        # paired_indices = self._align_indices(prompt, pairs)
-        paired_indices = [[2, 3], [6, 7]]
+        # prompt = (prompt)
+        prompt = prompt[0]
+        paired_indices = self._align_indices(prompt, pairs)
+        # paired_indices = [[2, 3], [6, 7]]
         print(f"paired_indices: {paired_indices}")
         return paired_indices
 
@@ -862,7 +827,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             attention_maps: List[torch.Tensor],
             prompt: Union[str, List[str]],
             attn_map_idx_to_wp,
-            indices_to_alter
+            timestep
     ) -> torch.Tensor:
         if not self.subtrees_indices:
           self.subtrees_indices = self._extract_attribution_indices(prompt)
@@ -880,9 +845,12 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                 attn_map_idx_to_wp,
             )
             # loss += positive_loss
-            loss = loss + positive_loss
-            loss = loss + concentration_loss * 10
-            # loss += negative_loss
+            loss = loss + positive_loss * 2
+            # con_factor = 10 ** ((8 - timestep)/8)
+            con_factor = 10
+
+            loss = loss + concentration_loss * con_factor
+            loss = loss + negative_loss
 
         return loss
 
@@ -902,10 +870,10 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                 calculate_positive_loss(attention_maps, modifier, noun)
             )
             negative_loss.append(
-                # calculate_negative_loss(
-                #     attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp
-                # )
-                []
+                calculate_negative_loss(
+                    attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp
+                )
+                # []
             )
 
             concentration_loss.append(
@@ -916,14 +884,14 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
 
         positive_loss = sum(positive_loss)
         concentration_loss = sum(concentration_loss)
-        # negative_loss = sum(negative_loss)
+        negative_loss = sum(negative_loss)
 
         return positive_loss, negative_loss, concentration_loss
 
 
 
     def _align_indices(self, prompt, spacy_pairs):
-        # prompt = prompt[0]
+        print(f"prompt: {prompt}, {type(prompt)}")
         wordpieces2indices = get_indices(self.tokenizer, prompt)
         paired_indices = []
         collected_spacy_indices = (
@@ -966,47 +934,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         return paired_indices
 
 
-    # def _extract_attribution_indices(self, indices_to_altert):
-    #     # extract standard attribution indices
-    #     # print(f"prompt: {self.doc}")
-    #     # pairs, idxs = extract_attribution_indices(self.doc)
-
-    #     # # extract attribution indices with verbs in between
-    #     # pairs_2, idxs_2 = extract_attribution_indices_with_verb_root(self.doc)
-    #     # pairs_3, idxs_3 = extract_attribution_indices_with_verbs(self.doc)
-    #     # # make sure there are no duplicates
-    #     # pairs = unify_lists(pairs, pairs_2, pairs_3)
-
-    #     # unified_list = idxs + idxs_2 + idxs_3
-    #     # sorted_list = sorted(unified_list, key=len)
-
-    #     # print(f"Final pairs collected: {pairs}")
-    #     # paired_indices = self._align_indices(prompt, pairs)
-    #     #  print(f"paired_indices: {paired_indices}")
-    #     # paired_indices = [[2, 5], [18, 19], [23, 24], [28, 29], [34, 35]]
-        
-        
-    #     # paired_indices = []
-    #     # print(f"layout_count: {layout_count}")
-    #     # for idx, counts in enumerate(layout_count):
-    #     #     if idx > 0 :
-    #     #         l = list(range(counts[0]+1, counts[-1]+1))
-    #     #         paired_indices.append(l)
-
-
-    #     print(f"paired_indices: {paired_indices}")
-    #     return paired_indices
-
-    # def _get_attention_maps_list(
-    #         self, attention_maps: torch.Tensor
-    # ) -> List[torch.Tensor]:
-    #     attention_maps = attention_maps * 100
-    #     attention_maps_list = [
-    #         attention_maps[:, :, i] for i in range(attention_maps.shape[2])
-    #     ]
-
-    #     return attention_maps_list
-
+   
 def is_sublist(sub, main):
     # This function checks if 'sub' is a sublist of 'main'
     return len(sub) < len(main) and all(item in main for item in sub)
