@@ -1,0 +1,27 @@
+module load cuda11.8
+cd project/ICLR24
+tmux
+source activate lsg
+jupyter-lab –ip 172.17.0.5
+
+pang@147.46.116.32:/media/pang/SSD_2/project/ICLR24
+gwang.kim@147.46.121.39:/home/gwang.kim/project/ICLR24
+conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cuda=11.7 -c pytorch -c nvidia
+
+
+
+cd  /media/pang/SSD_2/project/ICLR24/DenseDiffusion
+
+cp -r *intradiv* ../my_result/chosen_models_230304/intradiv/
+scp -r dataset/ gwang.kim@147.46.121.39:/home/gwang.kim/project/ICLR24
+scp -r diffusers/ gwang.kim@147.46.121.39:/home/gwang.kim/project/ICLR24
+scp -r jeeit17@147.46.121.39:/home/jeeit17/project/datid3d/train/* ./
+
+
+pip uninstall torch transformers diffusers -y
+pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
+pip install transformers, diffusers
+
+
+
+

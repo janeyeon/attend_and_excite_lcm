@@ -1,0 +1,33 @@
+{
+  "_class_name": "LatentConsistencyModelPipeline",
+  "_diffusers_version": "0.22.0.dev0",
+  "feature_extractor": [
+    "transformers",
+    "CLIPImageProcessor"
+  ],
+  "requires_safety_checker": true,
+  "safety_checker": [
+    "stable_diffusion",
+    "StableDiffusionSafetyChecker"
+  ],
+  "scheduler": [
+    "diffusers",
+    "LCMScheduler"
+  ],
+  "text_encoder": [
+    "transformers",
+    "CLIPTextModel"
+  ],
+  "tokenizer": [
+    "transformers",
+    "CLIPTokenizer"
+  ],
+  "unet": [
+    "diffusers",
+    "UNet2DConditionModel"
+  ],
+  "vae": [
+    "diffusers",
+    "AutoencoderKL"
+  ]
+}

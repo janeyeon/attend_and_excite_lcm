@@ -1,0 +1,6 @@
+diffusers==0.22.0
+transformers==4.28.0
+controlnet-aux
+gradio
+accelerate
+tqdm
