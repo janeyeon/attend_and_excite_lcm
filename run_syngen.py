@@ -104,10 +104,15 @@ def main(config: RunConfig):
                                       config=config)
                 dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}"
                 dataset_prompt_output_path.mkdir(exist_ok=True, parents=True)
-                image.save(dataset_prompt_output_path / f'{config.model}_{seed}.png')
-            te = time.time()
-            print(f"*** Time spent: {te-ts:.4f} ***")
-            quit()
+                image.save(dataset_prompt_output_path / f'SynGen_{config.model}_{seed}.png')
+            if i == 3:
+                break
+        te = time.time()
+        print(f"*** Total time spent: {te-ts:.4f} ***")
+        print(f"*** For one image: {(te-ts)/((i+1)*len(config.seeds)):.4f}")
+        with open(f"{config.output_path}/Time_SynGen_{config.model}_{dataset_name}.txt", 'w') as f:
+            f.write(f"{(te-ts)/((i+1)*len(config.seeds)):.4f}") 
+            
         
     else:
         token_indices = get_indices_to_alter(stable, config.prompt) if config.token_indices is None else config.token_indices
