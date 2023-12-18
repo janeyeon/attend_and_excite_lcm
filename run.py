@@ -20,7 +20,7 @@ def load_model(config: RunConfig):
     if config.sd_2_1:
         stable_diffusion_version = "stabilityai/stable-diffusion-2-1-base"
     else:
-        stable_diffusion_version = "CompVis/stable-diffusion-v1-4"
+        stable_diffusion_version = "runwayml/stable-diffusion-v1-5"
     stable = AttendAndExcitePipeline.from_pretrained(stable_diffusion_version).to(device)
     return stable
 

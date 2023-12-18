@@ -6,7 +6,7 @@ from typing import Dict, List
 @dataclass
 class RunConfig:
     # Guiding text prompt
-    prompt: str
+    prompt: str = ''
     # Whether to use Stable Diffusion v2.1
     sd_2_1: bool = False
     # Which token indices to alter with attend-and-excite
@@ -39,6 +39,10 @@ class RunConfig:
     kernel_size: int = 3
     # Whether to save cross attention maps for the final results
     save_cross_attention_maps: bool = True
+    # dvmp dataset
+    dataset_path: str = ''
+    # model selection
+    model: str = 'LCM'
 
     def __post_init__(self):
         self.output_path.mkdir(exist_ok=True, parents=True)
