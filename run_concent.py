@@ -24,7 +24,7 @@ def load_model(config: RunConfig):
     stable = AttendAndExciteConcentPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7",safety_checker=safety_checker, dtype=torch.float32).to(device)
     tokenizer = stable.tokenizer
     stable.scheduler = LCMScheduler.from_config(stable.scheduler.config)
-    stable.scheduler.set_timesteps(num_inference_steps=config.n_inference_steps,                                   original_inference_steps=50,device=device)
+    stable.scheduler.set_timesteps(num_inference_steps=config.n_inference_steps, original_inference_steps=50, device=device)
     return stable
 
 
@@ -72,29 +72,70 @@ def run_on_prompt(prompt: str,
 
 @pyrallis.wrap()
 def main(config: RunConfig):
+    torch.autograd.set_detect_anomaly(True)
     stable = load_model(config)
-    token_indices = get_indices_to_alter(stable, config.prompt) if config.token_indices is None else config.token_indices
-    images = []
+    count = 0
+    time_total = 0
     
-    for seed in config.seeds:
-        print(f"Seed: {seed}")
-        g = torch.Generator('cuda').manual_seed(seed)
-        controller = AttentionStore()
-        image = run_on_prompt(prompt=config.prompt,
-                              model=stable,
-                              controller=controller,
-                              token_indices=token_indices,
-                              seed=g,
-                              config=config)
-        prompt_output_path = config.output_path / config.prompt
-        prompt_output_path.mkdir(exist_ok=True, parents=True)
-        image.save(prompt_output_path / f'{seed}.png')
-        images.append(image)
+    if config.dataset_path != '':
+        dataset = pd.read_csv(config.dataset_path)
+        dataset_name = config.dataset_path.split("/")[-1].split('.')[0]
+        ts = time.time()
+        for i in tqdm(range(len(dataset)), desc="Prompt idx"):
+            dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}"
+            dataset_prompt_output_path.mkdir(exist_ok=True, parents=True)
+            img_path = dataset_prompt_output_path / f'SynGen_{config.model}_{seed}.png'
+            if img_path.exists():
+                continue
+                
+            config.prompt = dataset.iloc[i].prompt
+            token_indices = dataset.iloc[i].item_indices
+            for seed in config.seeds:
+                print(f"Seed: {seed}")
+                try:
+                    ts = time.time()
+                    g = torch.Generator('cuda').manual_seed(seed)
+                    controller = AttentionStore()
+                    image = run_on_prompt(prompt=config.prompt,
+                                          model=stable,
+                                          controller=controller,
+                                          token_indices=token_indices,
+                                          seed=g,
+                                          config=config)
+                    te = time.time()
+                    image.save(img_path)
+                    time_total += (te-ts)
+                    count += 1
+                except:
+                    print('FAILED:',i, config.prompt)
+                
+        print(f"*** Total time spent: {time_total:.4f} ***")
+        print(f"*** For one image: {time_total/count:.4f}")
+        with open(f"{config.output_path}/Time_SynGen_{config.model}_{dataset_name}.txt", 'w') as f:
+            f.write(f"{time_total/count:.4f}") 
+        
+    else:
+        token_indices = get_indices_to_alter(stable, config.prompt) if config.token_indices is None else config.token_indices
+        images = []
+        for seed in config.seeds:
+            print(f"Seed: {seed}")
+            g = torch.Generator('cuda').manual_seed(seed)
+            controller = AttentionStore()
+            image = run_on_prompt(prompt=config.prompt,
+                                  model=stable,
+                                  controller=controller,
+                                  token_indices=token_indices,
+                                  seed=g,
+                                  config=config)
+            prompt_output_path = config.output_path / config.prompt
+            prompt_output_path.mkdir(exist_ok=True, parents=True)
+            image.save(prompt_output_path / f'{seed}.png')
+            images.append(image)
 
-    # save a grid of results across all seeds
-    joined_image = vis_utils.get_image_grid(images)
-    joined_image.save(config.output_path / f'{config.prompt}.png')
-
+        # save a grid of results across all seeds
+        joined_image = vis_utils.get_image_grid(images)
+        joined_image.save(config.output_path / f'{config.prompt}.png')
+        
 
 if __name__ == '__main__':
     main()
