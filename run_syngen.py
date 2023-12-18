@@ -22,6 +22,7 @@ from utils import vis_utils
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
+METHOD = 'SynGen'
 
 def load_model(config: RunConfig):
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
@@ -95,7 +96,7 @@ def main(config: RunConfig):
         for i in tqdm(range(len(dataset)), desc="Prompt idx"):
             dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}"
             dataset_prompt_output_path.mkdir(exist_ok=True, parents=True)
-            img_path = dataset_prompt_output_path / f'SynGen_{config.model}_{seed}.png'
+            img_path = dataset_prompt_output_path / f'{METHOD}_{config.model}_{seed}.png'
             if img_path.exists():
                 continue
                 
@@ -123,7 +124,7 @@ def main(config: RunConfig):
         te = time.time()
         print(f"*** Total time spent: {time_total:.4f} ***")
         print(f"*** For one image: {time_total/count:.4f}")
-        with open(f"{config.output_path}/Time_SynGen_{config.model}_{dataset_name}.txt", 'w') as f:
+        with open(f"{config.output_path}/Time_{METHOD}_{config.model}_{dataset_name}.txt", 'w') as f:
             f.write(f"{time_total/count:.4f}") 
             
         
