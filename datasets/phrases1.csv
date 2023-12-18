@@ -1,101 +1,101 @@
-prompt,num_modifiers,num_phrases,item_indices,subjects
-a purple spotted panda,2,1,[4],['panda']
-a spiky modern suitcase,2,1,[4],['suitcase']
-a happy programmer,1,1,[3],['programmer']
-a baby monkey,1,1,[3],"['baby', 'monkey']"
-a red furry sleepy gorilla,3,1,[5],['gorilla']
-a beige strawberry,1,1,[3],['strawberry']
-a skewered tomato,1,1,[3],['tomato']
-a middle-aged man,1,1,[3],['man']
-a sliced strawberry,1,1,[3],['strawberry']
-a skewered apple,1,1,[3],['apple']
-a sleepy lion,1,1,[3],['lion']
-a sitting woman,1,1,[3],['woman']
-a baby bear,1,1,[3],"['baby', 'bear']"
-a brown baby sleepy lion,3,1,[5],"['baby', 'lion']"
-an old standing man,2,1,[4],['man']
-a pink tomato,1,1,[3],['tomato']
-a skewered banana,1,1,[3],['banana']
-a happy person,1,1,[3],['person']
-a yellow sliced tomato,2,1,[4],['tomato']
-a red strawberry,1,1,[3],['strawberry']
-an adolescent artist,1,1,[3],['artist']
-a beige banana,1,1,[3],['banana']
-a baby furry monkey,2,1,[4],"['baby', 'monkey']"
-an adolescent sitting artist,2,1,[4],"['sitting', 'artist']"
-a sliced banana,1,1,[3],['banana']
-a lying angry man,2,1,[4],['man']
-a beige tomato,1,1,[3],['tomato']
-a furry spotted monkey,2,1,[4],['monkey']
-a happy woman,1,1,[3],['woman']
-a standing young programmer,2,1,[4],['programmer']
-a baby mouse,1,1,[3],"['baby', 'mouse']"
-a spiky checkered skateboard,2,1,[4],['skateboard']
-a gray sleepy baby zebra,3,1,[5],"['baby', 'zebra']"
-a metal wooden bowl,2,1,[4],"['metal', 'bowl']"
-an angry young woman,2,1,[4],['woman']
-a middle-aged artist,1,1,[3],['artist']
-a checkered modern skateboard,2,1,[4],['skateboard']
-a lying woman,1,1,[3],['woman']
-a beige spiky spotted umbrella,3,1,[5],['umbrella']
-a green skewered banana,2,1,[4],['banana']
-a beige spotted clock,2,1,[4],['clock']
-a spotted furry turtle,2,1,[4],['turtle']
-a lying old programmer,2,1,[4],['programmer']
-a red balloon,1,1,[3],['balloon']
-a brown wooden checkered clock,3,1,[5],['clock']
-a sitting middle-aged programmer,2,1,[4],['programmer']
-a blue sliced strawberry,2,1,[4],['strawberry']
-an orange sleepy zebra,2,1,[4],['zebra']
-a red skewered apple,2,1,[4],['apple']
-a standing sleepy man,2,1,[4],['man']
-a wooden modern balloon,2,1,[4],['balloon']
-a baby spotted penguin,2,1,[4],"['baby', 'penguin']"
-a spotted sleepy panda,2,1,[4],['panda']
-an orange apple,1,1,[3],"['orange', 'apple']"
-a modern suitcase,1,1,[3],['suitcase']
-a green spiky chair,2,1,[4],['chair']
-a sleepy artist,1,1,[3],['artist']
-a curved spiky hat,2,1,[4],['hat']
-a yellow dog,1,1,[3],['dog']
-a pink wooden spiky skateboard,3,1,[5],['skateboard']
-a sleepy furry dog,2,1,[4],['dog']
-a white sliced apple,2,1,[4],['apple']
-a sleepy adolescent man,2,1,[4],['man']
-a blue balloon,1,1,[3],['balloon']
-a sleepy furry bear,2,1,[4],['bear']
-a modern skateboard,1,1,[3],['skateboard']
-a surprised standing man,2,1,[4],['man']
-a spotted metal chair,2,1,[4],"['metal', 'chair']"
-a surprised lying programmer,2,1,[4],['programmer']
-a black checkered wooden umbrella,3,1,[5],['umbrella']
-a pink spiky metal bowl,3,1,[5],"['metal', 'bowl']"
-a pink cat,1,1,[3],['cat']
-a beige apple,1,1,[3],['apple']
-a sleepy horse,1,1,[3],['horse']
-a young sitting programmer,2,1,[4],['programmer']
-a purple metal checkered suitcase,3,1,[5],"['metal', 'suitcase']"
-a lying surprised person,2,1,[4],['person']
-a baby gorilla,1,1,[3],"['baby', 'gorilla']"
-a skewered strawberry,1,1,[3],['strawberry']
-a curved wooden backpack,2,1,[4],['backpack']
-a metal backpack,1,1,[3],"['metal', 'backpack']"
-a modern checkered shoe,2,1,[4],['shoe']
-a sitting artist,1,1,[3],['artist']
-a happy sitting woman,2,1,[4],['woman']
-a metal clock,1,1,[3],"['metal', 'clock']"
-a purple tomato,1,1,[3],['tomato']
-a modern wooden camera,2,1,[4],['camera']
-a wooden bow,1,1,[3],['bow']
-a spotted penguin,1,1,[3],['penguin']
-a yellow baby furry frog,3,1,[5],"['baby', 'frog']"
-a teal spotted bicycle,2,1,[4],['bicycle']
-a modern bench,1,1,[3],['bench']
-a teal skewered tomato,2,1,[4],"['teal', 'tomato']"
-a checkered bow,1,1,[3],['bow']
-a standing artist,1,1,[3],['artist']
-a spotted bow,1,1,[3],['bow']
-a gray sleepy cat,2,1,[4],['cat']
-a red apple,1,1,[3],['apple']
-an adolescent man,1,1,[3],['man']
-a yellow metal guitar,2,1,[4],"['metal', 'guitar']"
+,prompt,num_modifiers,num_phrases,item_indices,subjects
+0,a purple spotted panda,2,1,[4],['panda']
+1,a spiky modern suitcase,2,1,[4],['suitcase']
+2,a happy programmer,1,1,[3],['programmer']
+3,a baby monkey,1,1,[3],"['baby', 'monkey']"
+4,a red furry sleepy gorilla,3,1,[5],['gorilla']
+5,a beige strawberry,1,1,[3],['strawberry']
+6,a skewered tomato,1,1,[3],['tomato']
+7,a middle-aged man,1,1,[3],['man']
+8,a sliced strawberry,1,1,[3],['strawberry']
+9,a skewered apple,1,1,[3],['apple']
+10,a sleepy lion,1,1,[3],['lion']
+11,a sitting woman,1,1,[3],['woman']
+12,a baby bear,1,1,[3],"['baby', 'bear']"
+13,a brown baby sleepy lion,3,1,[5],"['baby', 'lion']"
+14,an old standing man,2,1,[4],['man']
+15,a pink tomato,1,1,[3],['tomato']
+16,a skewered banana,1,1,[3],['banana']
+17,a happy person,1,1,[3],['person']
+18,a yellow sliced tomato,2,1,[4],['tomato']
+19,a red strawberry,1,1,[3],['strawberry']
+20,an adolescent artist,1,1,[3],['artist']
+21,a beige banana,1,1,[3],['banana']
+22,a baby furry monkey,2,1,[4],"['baby', 'monkey']"
+23,an adolescent sitting artist,2,1,[4],"['sitting', 'artist']"
+24,a sliced banana,1,1,[3],['banana']
+25,a lying angry man,2,1,[4],['man']
+26,a beige tomato,1,1,[3],['tomato']
+27,a furry spotted monkey,2,1,[4],['monkey']
+28,a happy woman,1,1,[3],['woman']
+29,a standing young programmer,2,1,[4],['programmer']
+30,a baby mouse,1,1,[3],"['baby', 'mouse']"
+31,a spiky checkered skateboard,2,1,[4],['skateboard']
+32,a gray sleepy baby zebra,3,1,[5],"['baby', 'zebra']"
+33,a metal wooden bowl,2,1,[4],"['metal', 'bowl']"
+34,an angry young woman,2,1,[4],['woman']
+35,a middle-aged artist,1,1,[3],['artist']
+36,a checkered modern skateboard,2,1,[4],['skateboard']
+37,a lying woman,1,1,[3],['woman']
+38,a beige spiky spotted umbrella,3,1,[5],['umbrella']
+39,a green skewered banana,2,1,[4],['banana']
+40,a beige spotted clock,2,1,[4],['clock']
+41,a spotted furry turtle,2,1,[4],['turtle']
+42,a lying old programmer,2,1,[4],['programmer']
+43,a red balloon,1,1,[3],['balloon']
+44,a brown wooden checkered clock,3,1,[5],['clock']
+45,a sitting middle-aged programmer,2,1,[4],['programmer']
+46,a blue sliced strawberry,2,1,[4],['strawberry']
+47,an orange sleepy zebra,2,1,[4],['zebra']
+48,a red skewered apple,2,1,[4],['apple']
+49,a standing sleepy man,2,1,[4],['man']
+50,a wooden modern balloon,2,1,[4],['balloon']
+51,a lying young artist,2,1,[4],['artist']
+52,a spotted sleepy panda,2,1,[4],['panda']
+53,an orange apple,1,1,[3],"['orange', 'apple']"
+54,a modern suitcase,1,1,[3],['suitcase']
+55,a green spiky chair,2,1,[4],['chair']
+56,a sleepy artist,1,1,[3],['artist']
+57,a curved spiky hat,2,1,[4],['hat']
+58,a yellow dog,1,1,[3],['dog']
+59,a pink wooden spiky skateboard,3,1,[5],['skateboard']
+60,a sleepy furry dog,2,1,[4],['dog']
+61,a white sliced apple,2,1,[4],['apple']
+62,a sleepy adolescent man,2,1,[4],['man']
+63,a blue balloon,1,1,[3],['balloon']
+64,a sleepy furry bear,2,1,[4],['bear']
+65,a modern skateboard,1,1,[3],['skateboard']
+66,a surprised standing man,2,1,[4],['man']
+67,a spotted metal chair,2,1,[4],"['metal', 'chair']"
+68,a surprised lying programmer,2,1,[4],['programmer']
+69,a black checkered wooden umbrella,3,1,[5],['umbrella']
+70,a pink spiky metal bowl,3,1,[5],"['metal', 'bowl']"
+71,a pink cat,1,1,[3],['cat']
+72,a beige apple,1,1,[3],['apple']
+73,a sleepy horse,1,1,[3],['horse']
+74,a young sitting programmer,2,1,[4],['programmer']
+75,a purple metal checkered suitcase,3,1,[5],"['metal', 'suitcase']"
+76,a lying surprised person,2,1,[4],['person']
+77,a baby gorilla,1,1,[3],"['baby', 'gorilla']"
+78,a skewered strawberry,1,1,[3],['strawberry']
+79,a curved wooden backpack,2,1,[4],['backpack']
+80,a metal backpack,1,1,[3],"['metal', 'backpack']"
+81,a modern checkered shoe,2,1,[4],['shoe']
+82,a sitting artist,1,1,[3],['artist']
+83,a happy sitting woman,2,1,[4],['woman']
+84,a metal clock,1,1,[3],"['metal', 'clock']"
+85,a purple tomato,1,1,[3],['tomato']
+86,a modern wooden camera,2,1,[4],['camera']
+87,a wooden bow,1,1,[3],['bow']
+88,a spotted penguin,1,1,[3],['penguin']
+89,a yellow baby furry frog,3,1,[5],"['baby', 'frog']"
+90,a teal spotted bicycle,2,1,[4],['bicycle']
+91,a modern bench,1,1,[3],['bench']
+92,a teal skewered tomato,2,1,[4],"['teal', 'tomato']"
+93,a checkered bow,1,1,[3],['bow']
+94,a standing artist,1,1,[3],['artist']
+95,a spotted bow,1,1,[3],['bow']
+96,a gray sleepy cat,2,1,[4],['cat']
+97,a red apple,1,1,[3],['apple']
+98,an adolescent man,1,1,[3],['man']
+99,a yellow metal guitar,2,1,[4],"['metal', 'guitar']"
