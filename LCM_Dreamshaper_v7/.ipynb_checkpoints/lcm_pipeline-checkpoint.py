@@ -266,8 +266,8 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         else:
             batch_size = prompt_embeds.shape[0]
         
-        device = self._execution_device
-    
+        #device = self._execution_device    
+        device = 'cuda'
         do_classifier_free_guidance = guidance_scale > 1.0  # In LCM Implementation:  cfg_noise = noise_cond + cfg_scale * (noise_cond - noise_uncond) , (cfg_scale > 0.0 using CFG)
 
         # 3. Encode input prompt
