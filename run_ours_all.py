@@ -99,7 +99,11 @@ def main(config: RunConfig):
     dataset = pd.read_csv(config.dataset_path) # jubin change
     dataset_name = config.dataset_path.split("/")[-1].split('.')[0] # jubin change
     ts = time.time()
-    for i in tqdm(range(len(dataset)), desc="Prompt idx"):
+    if config.rev == True:
+        iters = range(len(dataset)-1,-1,-1)
+    else:
+        iters = range(len(dataset)
+    for i in tqdm(iters)), desc="Prompt idx"):
         i = config.idx if config.idx != -1 else i
         config.prompt = dataset.iloc[i].prompt # jubin change
         token_indices = dataset.iloc[i].item_indices # jubin change
@@ -109,8 +113,8 @@ def main(config: RunConfig):
             dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}" # jubin change
             dataset_prompt_output_path.mkdir(exist_ok=True, parents=True) # jubin change
             img_path = dataset_prompt_output_path / f'{METHOD}_{seed}.png' # jubin change
-            # if img_path.exists(): # jubin change
-            #     continue          # jubin change
+            if img_path.exists(): # jubin change
+                continue          # jubin change
             print(f"Seed: {seed}")
 
             ts = time.time()

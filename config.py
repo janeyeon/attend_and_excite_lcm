@@ -51,6 +51,8 @@ class RunConfig:
         raise ValueError("ERROR: Wrong ablation method selected!")
     # debug
     debug: bool = False
+    #
+    rev: bool = False
     
 
     def __post_init__(self):

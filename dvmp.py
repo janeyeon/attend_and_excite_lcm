@@ -15,9 +15,9 @@ def get_article(word):
 def generate_phrase(items, modifiers, colors, item_type):
     # randomly choose num modifiers 0,1,2
     if item_type == 'fruit':
-        num_modifiers = random.choice([0, 1])
+        num_modifiers = random.choice([1])
     else:
-        num_modifiers = random.choice([0, 1, 2])
+        num_modifiers = random.choice([1])
     # randomly choose num_modifiers animal_modifiers
     if item_type == 'human':
         modifier_type = random.sample(modifiers.keys(), num_modifiers)
@@ -31,7 +31,7 @@ def generate_phrase(items, modifiers, colors, item_type):
             colors = colors.copy()
             colors.pop(1)
         color = random.choice(colors)
-        sampled_modifiers = [color] + sampled_modifiers
+        sampled_modifiers = [color] 
     # if no modifiers, try again.
     if len(sampled_modifiers) == 0:
         return generate_phrase(items, modifiers, colors, item_type)

@@ -683,25 +683,25 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
 
 
                             # If this is an iterative refinement step, verify we have reached the desired threshold for all
-                            if i in thresholds.keys() and loss > 1. - thresholds[i]:
-                                del noise_pred_text
-                                torch.cuda.empty_cache()
-                                loss, latents, max_attention_per_index = self._perform_iterative_refinement_step(
-                                    latents=latents,
-                                    indices_to_alter=indices_to_alter,
-                                    loss=loss,
-                                    threshold=thresholds[i],
-                                    # text_embeddings=prompt_embeds,
-                                    text_embeddings=text_embeddings,
-                                    text_input=text_inputs,
-                                    attention_store=attention_store,
-                                    step_size=scale_factor * np.sqrt(scale_range[i]),
-                                    t=t,
-                                    attention_res=attention_res,
-                                    smooth_attentions=smooth_attentions,
-                                    sigma=sigma,
-                                    kernel_size=kernel_size,
-                                    normalize_eot=sd_2_1)
+                            # if i in thresholds.keys() and loss > 1. - thresholds[i]:
+                            #     del noise_pred_text
+                            #     torch.cuda.empty_cache()
+                            #     loss, latents, max_attention_per_index = self._perform_iterative_refinement_step(
+                            #         latents=latents,
+                            #         indices_to_alter=indices_to_alter,
+                            #         loss=loss,
+                            #         threshold=thresholds[i],
+                            #         # text_embeddings=prompt_embeds,
+                            #         text_embeddings=text_embeddings,
+                            #         text_input=text_inputs,
+                            #         attention_store=attention_store,
+                            #         step_size=scale_factor * np.sqrt(scale_range[i]),
+                            #         t=t,
+                            #         attention_res=attention_res,
+                            #         smooth_attentions=smooth_attentions,
+                            #         sigma=sigma,
+                            #         kernel_size=kernel_size,
+                            #         normalize_eot=sd_2_1)
 
                             # Perform gradient update
                             if i < max_iter_to_alter:
