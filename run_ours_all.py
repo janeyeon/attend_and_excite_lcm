@@ -103,7 +103,7 @@ def main(config: RunConfig):
         iters = range(len(dataset)-1,-1,-1)
     else:
         iters = range(len(dataset)
-    for i in tqdm(iters)), desc="Prompt idx"):
+    for i in tqdm(iters), desc="Prompt idx"):
         i = config.idx if config.idx != -1 else i
         config.prompt = dataset.iloc[i].prompt # jubin change
         token_indices = dataset.iloc[i].item_indices # jubin change

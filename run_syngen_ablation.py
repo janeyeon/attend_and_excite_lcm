@@ -104,8 +104,8 @@ def main(config: RunConfig):
         config.prompt = dataset.iloc[i].prompt # jubin change
         token_indices = dataset.iloc[i].item_indices # jubin change
         token_indices = eval(token_indices) if isinstance(token_indices, str) else token_indices # jubin change
-        for seed in [42, 54] : #[42, 54]:
-            # seed = random.randint(0, 10000000)
+        for _ in range(10) : #[42, 54]:
+            seed = random.randint(0, 10000000)
             dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}" # jubin change
             dataset_prompt_output_path.mkdir(exist_ok=True, parents=True) # jubin change
             img_path = dataset_prompt_output_path / f'ablation_{METHOD}_{seed}.png' # jubin change
