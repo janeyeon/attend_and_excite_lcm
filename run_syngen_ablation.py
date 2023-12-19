@@ -5,7 +5,7 @@ import torch
 from PIL import Image
 from config import RunConfig
 # from pipeline_attend_and_excite import AttendAndExcitePipeline
-from pipeline_attend_and_excite_syngen import AttendAndExciteSynGenPipeline
+from pipeline_attend_and_excite_syngen_ablation import AttendAndExciteSynGenPipeline
 import sys
 sys.path.append(' ')
 from utils.ptp_utils import AttentionStore
@@ -57,7 +57,7 @@ def run_on_prompt(prompt: str,
     prompt = [prompt]
     outputs = model(prompt=prompt,
                     attention_store=controller,
-                    indices_to_alter=[],
+                    indices_to_alter=token_indices, # jubin change
                     attention_res=config.attention_res,
                     guidance_scale=config.guidance_scale,
                     generator=seed,
@@ -71,38 +71,67 @@ def run_on_prompt(prompt: str,
                     sigma=config.sigma,
                     kernel_size=config.kernel_size,
                     sd_2_1=config.sd_2_1, 
-                    tokenizer=model.tokenizer)
+                    tokenizer=model.tokenizer,
+                    config=config)
     image = outputs.images[0]
     return image
 
 
 @pyrallis.wrap()
 def main(config: RunConfig):
+    METHOD = config.method # jubin change
     stable = load_model(config)
-    token_indices = get_indices_to_alter(stable, config.prompt) if config.token_indices is None else config.token_indices
     images = []
+
+    count = 0 # jubin change
+    failed_idx = [] # jubin change
+    time_total = 0 # jubin change
+
+    dataset = pd.read_csv(config.dataset_path) # jubin change
+    dataset_name = config.dataset_path.split("/")[-1].split('.')[0] # jubin change
+    ts = time.time()
+    for i in tqdm(range(len(dataset)), desc="Prompt idx"):               
+        config.prompt = dataset.iloc[i].prompt # jubin change
+        token_indices = dataset.iloc[i].item_indices # jubin change
+        token_indices = eval(token_indices) if isinstance(token_indices, str) else token_indices # jubin change
+        for j in range(2):
+            seed = random.randint(0, 10000000)
+            dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}" # jubin change
+            dataset_prompt_output_path.mkdir(exist_ok=True, parents=True) # jubin change
+            img_path = dataset_prompt_output_path / f'ablation_{METHOD}_{config.model}_{seed}.png' # jubin change
+            if img_path.exists(): # jubin change
+                continue          # jubin change
+            print(f"Seed: {seed}")
+            try:
+                ts = time.time()
+                g = torch.Generator('cuda').manual_seed(seed)
+                controller = AttentionStore()
+                image = run_on_prompt(prompt=config.prompt,
+                                      model=stable,
+                                      controller=controller,
+                                      token_indices=token_indices,
+                                      seed=g,
+                                      config=config)
+                te = time.time() # jubin change
+                time_total += (te-ts) # jubin change
+                count += 1 # jubin change 
+                if config.debug:
+                    break
+                image.save(img_path)
+
+            except: # jubin change
+                print('FAILED:',i, config.prompt) # jubin change
+                failed_idx.append(f"{i}_{seed}") # jubin change
+        if config.debug:
+            break
+    te = time.time() # jubin change
+    print(f"*** Total time spent: {time_total:.4f} ***") # jubin change
+    print(f"*** For one image: {time_total/count:.4f}") # jubin change
+    with open(f"{config.output_path}/Time_{METHOD}_{config.model}_{dataset_name}.txt", 'w') as f: # jubin change
+        f.write(f"{time_total/count:.4f}") # jubin change
+        
+    print("Failed prompt idx & seed") # jubin change
+    print(failed_idx) # jubin change
     
-    
-    for _ in range(100):
-        seed = random.randint(0, 10000000)
-        print(f"Seed: {seed}")
-        g = torch.Generator('cuda').manual_seed(seed)
-        controller = AttentionStore()
-        image = run_on_prompt(prompt=config.prompt,
-                              model=stable,
-                              controller=controller,
-                              token_indices=token_indices,
-                              seed=g,
-                              config=config)
-        prompt_output_path = config.output_path / config.prompt
-        prompt_output_path.mkdir(exist_ok=True, parents=True)
-        image.save(prompt_output_path / f'{seed}.png')
-        images.append(image)
-
-    # save a grid of results across all seeds
-    joined_image = vis_utils.get_image_grid(images)
-    joined_image.save(config.output_path / f'{config.prompt}.png')
-
-
 if __name__ == '__main__':
     main()

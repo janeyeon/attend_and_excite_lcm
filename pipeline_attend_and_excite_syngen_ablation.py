@@ -454,7 +454,8 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             sigma: float = 0.5,
             kernel_size: int = 3,
             sd_2_1: bool = False,
-            tokenizer = None
+            tokenizer = None,
+            config = None # jubin change
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -537,14 +538,14 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         num_inference_steps = 4
 
         self.doc = self.parser(prompt[0])
-
+        print("Parsed prompt:",self.doc) # Jubin changed
         self.subtrees_indices = self._extract_attribution_indices(prompt)
         subtrees_indices = self.subtrees_indices
         
-
-        for subtree_indices in subtrees_indices:
-            noun, modifier = split_indices(subtree_indices)
-            indices_to_alter.append(noun[0])
+        if indicies_to_alter == []: # Jubin changed
+            for subtree_indices in subtrees_indices:
+                noun, modifier = split_indices(subtree_indices)
+                indices_to_alter.append(noun[0])
 
         print(f"Indices to alter: {indices_to_alter}")
         
@@ -629,86 +630,87 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         num_warmup_steps = len(timesteps) - 4 * self.scheduler.order
         with self.progress_bar(total=4) as progress_bar:
             for i, t in enumerate(timesteps):
+                ## calculate loss when 'highlight' in the ablation study, Else only apply CFG
+                if 'highlight' in self.config.method: # Jubin changed
+                    with torch.enable_grad():
 
-                with torch.enable_grad():
+                        latents = latents.clone().detach().requires_grad_(True)
 
-                    latents = latents.clone().detach().requires_grad_(True)
+                        # Forward pass of denoising with text conditioning
+                        # noise_pred_text = self.unet(latents, t,
+                        #                             encoder_hidden_states=prompt_embeds, cross_attention_kwargs=cross_attention_kwargs).sample
+                        noise_pred_text = self.unet(latents, t,
+                                                    encoder_hidden_states=text_embeddings, cross_attention_kwargs=cross_attention_kwargs).sample
+                        self.unet.zero_grad()
 
-                    # Forward pass of denoising with text conditioning
-                    # noise_pred_text = self.unet(latents, t,
-                    #                             encoder_hidden_states=prompt_embeds, cross_attention_kwargs=cross_attention_kwargs).sample
-                    noise_pred_text = self.unet(latents, t,
-                                                encoder_hidden_states=text_embeddings, cross_attention_kwargs=cross_attention_kwargs).sample
-                    self.unet.zero_grad()
+                        # Get max activation value for each subject token
+                        max_attention_per_index = self._aggregate_and_get_max_attention_per_token(
+                            attention_store=attention_store,
+                            indices_to_alter=indices_to_alter,
+                            attention_res=attention_res,
+                            smooth_attentions=smooth_attentions,
+                            sigma=sigma,
+                            kernel_size=kernel_size,
+                            normalize_eot=sd_2_1)
 
-                    # Get max activation value for each subject token
-                    max_attention_per_index = self._aggregate_and_get_max_attention_per_token(
-                        attention_store=attention_store,
-                        indices_to_alter=indices_to_alter,
-                        attention_res=attention_res,
-                        smooth_attentions=smooth_attentions,
-                        sigma=sigma,
-                        kernel_size=kernel_size,
-                        normalize_eot=sd_2_1)
+                        if not run_standard_sd:
 
-                    if not run_standard_sd:
-
-                        loss = self._compute_loss(max_attention_per_index=max_attention_per_index)
-
-
-                        # if i < 25:
-                        #     # attention2Orig(self, mod_orig
-                        
-                        
-                        print(f"enter syngen step!!!!!")
-                        syngen_loss = self._syngen_step(
-                            latents,
-                            text_embeddings,
-                            # prompt_embeds,
-                            t,
-                            i,
-                            syngen_step_size,
-                            cross_attention_kwargs,
-                            prompt,
-                            max_iter_to_alter=25,
-                            # layouts=layouts, 
-                            # layout_count=layout_count, 
-                            attention_store=attention_store, 
-                            timestep = i
-                        )
-
-
-                        
-
-                        # If this is an iterative refinement step, verify we have reached the desired threshold for all
-                        if i in thresholds.keys() and loss > 1. - thresholds[i]:
-                            del noise_pred_text
-                            torch.cuda.empty_cache()
-                            loss, latents, max_attention_per_index = self._perform_iterative_refinement_step(
-                                latents=latents,
-                                indices_to_alter=indices_to_alter,
-                                loss=loss,
-                                threshold=thresholds[i],
-                                # text_embeddings=prompt_embeds,
-                                text_embeddings=text_embeddings,
-                                text_input=text_inputs,
-                                attention_store=attention_store,
-                                step_size=scale_factor * np.sqrt(scale_range[i]),
-                                t=t,
-                                attention_res=attention_res,
-                                smooth_attentions=smooth_attentions,
-                                sigma=sigma,
-                                kernel_size=kernel_size,
-                                normalize_eot=sd_2_1)
-
-                        # Perform gradient update
-                        if i < max_iter_to_alter:
                             loss = self._compute_loss(max_attention_per_index=max_attention_per_index)
-                            loss = loss + syngen_loss
-                            if loss != 0:
-                                latents = self._update_latent(latents=latents, loss=loss,
-                                                              step_size=scale_factor * np.sqrt(scale_range[i]))
-                            print(f'Iteration {i} | Loss: {loss:0.4f}')
+
+
+                            # if i < 25:
+                            #     # attention2Orig(self, mod_orig
+
+
+                            print(f"enter syngen step!!!!!")
+                            syngen_loss = self._syngen_step(
+                                latents,
+                                text_embeddings,
+                                # prompt_embeds,
+                                t,
+                                i,
+                                syngen_step_size,
+                                cross_attention_kwargs,
+                                prompt,
+                                max_iter_to_alter=25,
+                                # layouts=layouts, 
+                                # layout_count=layout_count, 
+                                attention_store=attention_store, 
+                                timestep = i
+                            )
+
+
+
+
+                            # If this is an iterative refinement step, verify we have reached the desired threshold for all
+                            if i in thresholds.keys() and loss > 1. - thresholds[i]:
+                                del noise_pred_text
+                                torch.cuda.empty_cache()
+                                loss, latents, max_attention_per_index = self._perform_iterative_refinement_step(
+                                    latents=latents,
+                                    indices_to_alter=indices_to_alter,
+                                    loss=loss,
+                                    threshold=thresholds[i],
+                                    # text_embeddings=prompt_embeds,
+                                    text_embeddings=text_embeddings,
+                                    text_input=text_inputs,
+                                    attention_store=attention_store,
+                                    step_size=scale_factor * np.sqrt(scale_range[i]),
+                                    t=t,
+                                    attention_res=attention_res,
+                                    smooth_attentions=smooth_attentions,
+                                    sigma=sigma,
+                                    kernel_size=kernel_size,
+                                    normalize_eot=sd_2_1)
+
+                            # Perform gradient update
+                            if i < max_iter_to_alter:
+                                loss = self._compute_loss(max_attention_per_index=max_attention_per_index)
+                                loss = loss + syngen_loss
+                                if loss != 0:
+                                    latents = self._update_latent(latents=latents, loss=loss,
+                                                                  step_size=scale_factor * np.sqrt(scale_range[i]))
+                                print(f'Iteration {i} | Loss: {loss:0.4f}')
 
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
@@ -846,11 +848,11 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             )
             # loss += positive_loss
             loss = loss + positive_loss * 2
+            loss = loss + negative_loss
+            
             # con_factor = 10 ** ((8 - timestep)/8)
             con_factor = 10
-
             loss = loss + concentration_loss * con_factor
-            loss = loss + negative_loss
 
         return loss
 
@@ -882,9 +884,9 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                 )
             )
 
-        positive_loss = sum(positive_loss)
-        concentration_loss = sum(concentration_loss)
-        negative_loss = sum(negative_loss)
+        positive_loss = sum(positive_loss) if 'pair' in self.config.method else 0 # Jubin changed
+        negative_loss = sum(negative_loss) if 'pair' in self.config.method else 0 # Jubin changed
+        concentration_loss = sum(concentration_loss) if 'concent' in self.config.method else 0 # Jubin changed
 
         return positive_loss, negative_loss, concentration_loss
 
