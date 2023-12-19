@@ -79,6 +79,8 @@ def run_on_prompt(prompt: List[str],
 
 @pyrallis.wrap()
 def main(config: RunConfig):
+    global METHOD
+    METHOD = 'Baseline' if config.run_standard_sd == True else METHOD
     stable = load_model(config)
     torch.autograd.set_detect_anomaly(True)
     stable = load_model(config)

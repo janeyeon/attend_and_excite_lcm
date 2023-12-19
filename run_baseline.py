@@ -9,6 +9,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 from PIL import Image
+import diffusers
 from diffusers import LCMScheduler
 from diffusers.pipelines import DiffusionPipeline
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
@@ -25,6 +26,13 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def load_model(config: RunConfig):
+    def disabled_safety_checker(images, clip_input):
+        if len(images.shape)==4:
+            num_images = images.shape[0]
+            return images, [False]*num_images
+        else:
+            return images, False
+        
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     if config.model == 'LCM':
         pipe = DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7",
@@ -44,8 +52,12 @@ def load_model(config: RunConfig):
         stable.scheduler = LCMScheduler.from_config(stable.scheduler.config)
         stable.scheduler.set_timesteps(num_inference_steps=config.n_inference_steps, original_inference_steps=50, device=device)
     else:
-        stable_diffusion_version = "runwayml/stable-diffusion-v1-5"
-        stable = AttendAndExciteSynGenPipeline.from_pretrained(stable_diffusion_version).to(device)
+        stable = diffusers.StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5").to(device)
+        stable.scheduler.set_timesteps(config.n_inference_steps)
+        # stable_diffusion_version = "runwayml/stable-diffusion-v1-5"
+        # stable = AttendAndExciteSynGenPipeline.from_pretrained(stable_diffusion_version).to(device)
+    stable.safety_checker = disabled_safety_checker
+       
     return stable
 
 
@@ -88,7 +100,9 @@ def run_on_prompt(prompt: str,
                     sigma=config.sigma,
                     kernel_size=config.kernel_size,
                     sd_2_1=config.sd_2_1, 
-                    tokenizer=model.tokenizer)
+                    tokenizer=model.tokenizer,
+                    height=768,
+                    width=768)
     image = outputs.images[0]
     return image
 
