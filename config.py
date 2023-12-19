@@ -39,6 +39,15 @@ class RunConfig:
     kernel_size: int = 3
     # Whether to save cross attention maps for the final results
     save_cross_attention_maps: bool = True
+    # dataset path
+    dataset_path: str = ''
+    # ablation method LCM_CFG, LCM_CFG_highlight, LCM_CFG_highlight_pair, LCM_CFG_highlight_pair_concent
+    method: str = ''
+    if method not in ['LCM_CFG', 'LCM_CFG_highlight', 'LCM_CFG_highlight_pair', 'LCM_CFG_highlight_pair_concent', '']:
+        raise ValueError("ERROR: Wrong ablation method selected!")
+    # debug
+    debug: bool = False
+    
 
     def __post_init__(self):
         self.output_path.mkdir(exist_ok=True, parents=True)
