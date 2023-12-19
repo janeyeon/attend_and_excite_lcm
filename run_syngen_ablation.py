@@ -88,7 +88,7 @@ def run_on_prompt(prompt: str,
 
 @pyrallis.wrap()
 def main(config: RunConfig):
-    METHOD = config.method.split("") # jubin change
+    METHOD = config.method.split("_")[-1] # jubin change
     stable = load_model(config)
     images = []
 
