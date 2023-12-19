@@ -327,9 +327,7 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
                 else:
                     latent_model_input = latents
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-                #latent_model_input = self.scheduler.scale_model_input(latents, t)
-                #print(latent_model_input.shape)
-                # predict the noise residual
+
                 noise_pred = self.unet(
                     latent_model_input,
                     t,

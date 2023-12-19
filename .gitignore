@@ -5,5 +5,9 @@
 *.safetensors
 *.onnx
 *.onnx_data
+*.tar.gz
+*.zip
+*.gz
+*.tar
 
 outputs/*

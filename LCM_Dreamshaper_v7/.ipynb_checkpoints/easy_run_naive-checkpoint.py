@@ -1,4 +1,4 @@
-from lcm_pipeline import LatentConsistencyModelPipeline
+from lcm_pipeline_naive import LatentConsistencyModelPipeline
 from lcm_scheduler import LCMScheduler
 import matplotlib.pyplot as plt
 import torch
@@ -13,7 +13,7 @@ from pathlib import Path
 
 #custom_pipeline="latent_consistency_txt2img", custom_revision="main", revision="fb9c5d", generator = g)
 
-dataset_path = './datasets/phrases1.csv'
+dataset_path = './datasets/phrases3.csv'
 dataset = pd.read_csv(dataset_path)
 dataset_name = dataset_path.split("/")[-1].split('.')[0]
 ts = time.time()
@@ -32,8 +32,9 @@ for seed in [42,54]:
         token_indices = dataset.iloc[i].item_indices
           
         print(f"Seed: {seed}")
-        img_path = dataset_prompt_output_path / f'LCM_CFG_{seed}.png'
-
+        img_path = dataset_prompt_output_path / f'LCM_{seed}.png'
+        if img_path.exists():
+            continue
         ts = time.time()
         # image = run_on_prompt(prompt=config.prompt,
         #                       model=stable,
@@ -53,7 +54,7 @@ for seed in [42,54]:
 te = time.time()
 print(f"*** Total time spent: {time_total:.4f} ***")
 print(f"*** For one image: {time_total/count:.4f}")
-with open(f"{output_path}/Time_LCM_CFG_Pharses1.txt", 'w') as f:
+with open(f"{output_path}/Time_LCM_Pharses3.txt", 'w') as f:
     f.write(f"{time_total/count:.4f}") 
 #pipe.to("cuda", dtype=torch.float32)
 

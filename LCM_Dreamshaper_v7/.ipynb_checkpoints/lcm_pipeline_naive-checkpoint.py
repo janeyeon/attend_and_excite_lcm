@@ -42,14 +42,10 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         prompt,
         device,
         num_images_per_prompt,
-        do_classifier_free_guidance,
-        negative_prompt = None,
-        prompt_embeds: Optional[torch.FloatTensor] = None,
-        negative_prompt_embeds : Optional[torch.FloatTensor] = None,
+        prompt_embeds: None,
     ):
         r"""
         Encodes the prompt into text encoder hidden states.
-
         Args:
             prompt (`str` or `List[str]`, *optional*):
                 prompt to be encoded
@@ -102,12 +98,7 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
                 attention_mask=attention_mask,
             )
             prompt_embeds = prompt_embeds[0]
-        prompt_embeds = prompt_embeds.to(dtype=self.text_encoder.dtype, device=device)
 
-        bs_embed, seq_len, _ = prompt_embeds.shape
-        # duplicate text embeddings for each generation per prompt, using mps friendly method
-        prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
-        prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
         if self.text_encoder is not None:
             prompt_embeds_dtype = self.text_encoder.dtype
         elif self.unet is not None:
@@ -121,68 +112,9 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         # duplicate text embeddings for each generation per prompt, using mps friendly method
         prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
         prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
-        
-        if do_classifier_free_guidance and negative_prompt_embeds is None:
-            uncond_tokens: List[str]
-            if negative_prompt is None:
-                uncond_tokens = [""] * batch_size
-            elif type(prompt) is not type(negative_prompt):
-                raise TypeError(
-                    f"`negative_prompt` should be the same type to `prompt`, but got {type(negative_prompt)} !="
-                    f" {type(prompt)}."
-                )
-            elif isinstance(negative_prompt, str):
-                uncond_tokens = [negative_prompt]
-            elif batch_size != len(negative_prompt):
-                raise ValueError(
-                    f"`negative_prompt`: {negative_prompt} has batch size {len(negative_prompt)}, but `prompt`:"
-                    f" {prompt} has batch size {batch_size}. Please make sure that passed `negative_prompt` matches"
-                    " the batch size of `prompt`."
-                )
-            else:
-                uncond_tokens = negative_prompt
 
-            max_length = prompt_embeds.shape[1]
-            uncond_input = self.tokenizer(
-                uncond_tokens,
-                padding="max_length",
-                max_length=max_length,
-                truncation=True,
-                return_tensors="pt",
-            )
-
-            if hasattr(self.text_encoder.config, "use_attention_mask") and self.text_encoder.config.use_attention_mask:
-                attention_mask = uncond_input.attention_mask.to(device)
-            else:
-                attention_mask = None
-
-            negative_prompt_embeds = self.text_encoder(
-                uncond_input.input_ids.to(device),
-                attention_mask=attention_mask,
-            )
-            negative_prompt_embeds = negative_prompt_embeds[0]
-
-        if do_classifier_free_guidance:
-            # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
-            seq_len = negative_prompt_embeds.shape[1]
-
-            negative_prompt_embeds = negative_prompt_embeds.to(dtype=self.text_encoder.dtype, device=device)
-
-            negative_prompt_embeds = negative_prompt_embeds.repeat(1, num_images_per_prompt, 1)
-            negative_prompt_embeds = negative_prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
-
-            # For classifier free guidance, we need to do two forward passes.
-            # Here we concatenate the unconditional and text embeddings into a single batch
-            # to avoid doing two forward passes
-            prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
-        
-#         if do_classifier_free_guidance:
-#             prompt_embeds = prompt_embeds[batch_size*num_images_per_prompt:]
-#         else:
-#             prompt_embeds = prompt_embeds
-            
+        # Don't need to get uncond prompt embedding because of LCM Guided Distillation
         return prompt_embeds
-
 
 
     def run_safety_checker(self, image, device, dtype):
@@ -206,8 +138,6 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
             latents = torch.randn(shape, dtype=dtype).to(device)
         else:
             latents = latents.to(device)
-#         if do_classifier_free_guidance:
-#             latents = torch.cat([latents]*2)
         # scale the initial noise by the standard deviation required by the scheduler
         latents = latents * self.scheduler.init_noise_sigma
         return latents
@@ -219,7 +149,6 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         timesteps: torch.Tensor: generate embedding vectors at these timesteps
         embedding_dim: int: dimension of the embeddings to generate
         dtype: data type of the generated embeddings
-
         Returns:
         embedding vectors with shape `(len(timesteps), embedding_dim)`
         """
@@ -266,28 +195,24 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         else:
             batch_size = prompt_embeds.shape[0]
         
-        #device = self._execution_device    
-        device = 'cuda'
-        do_classifier_free_guidance = guidance_scale > 1.0  # In LCM Implementation:  cfg_noise = noise_cond + cfg_scale * (noise_cond - noise_uncond) , (cfg_scale > 0.0 using CFG)
-
+        device = self._execution_device
+        # do_classifier_free_guidance = guidance_scale > 0.0  # In LCM Implementation:  cfg_noise = noise_cond + cfg_scale * (noise_cond - noise_uncond) , (cfg_scale > 0.0 using CFG)
+        
         # 3. Encode input prompt
         prompt_embeds = self._encode_prompt(
             prompt,
             device,
             num_images_per_prompt,
-            do_classifier_free_guidance,
             prompt_embeds=prompt_embeds,
         )
         
         # 4. Prepare timesteps
-
         self.scheduler.set_timesteps(num_inference_steps, lcm_origin_steps)
         timesteps = self.scheduler.timesteps
         
         # 5. Prepare latent variable
         num_channels_latents = self.unet.config.in_channels
         latents = self.prepare_latents(
-            #do_classifier_free_guidance,
             batch_size * num_images_per_prompt,
             num_channels_latents,
             height,
@@ -299,49 +224,38 @@ class LatentConsistencyModelPipeline(DiffusionPipeline):
         
         bs = batch_size * num_images_per_prompt
         
-         # 6. Get Guidance Scale Embedding
-#         w = torch.tensor(guidance_scale).repeat(bs)
-#         w_embedding = self.get_w_embedding(w, embedding_dim=256).to(device)
+        # 6. Get Guidance Scale Embedding
+        w = torch.tensor(guidance_scale).repeat(bs)
+        w_embedding = self.get_w_embedding(w, embedding_dim=256).to(device)
         
         # 7. LCM MultiStep Sampling Loop:
-        num_warmup_steps = len(timesteps) - 4 * self.scheduler.order
-
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
+                
                 ts = torch.full((bs,), t, device=device, dtype=torch.long)
-                # Forward pass of denoising with text conditioning
-                noise_pred_text = self.unet(latents, t,encoder_hidden_states=prompt_embeds[1].unsqueeze(0), cross_attention_kwargs=cross_attention_kwargs).sample
-
-                if do_classifier_free_guidance:
-                    latent_model_input = torch.cat([latents]*2)
-                else:
-                    latent_model_input = latents
-                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-               
-                noise_pred = self.unet(
-                    latent_model_input,
-                    t,
+                
+                # model prediction (v-prediction, eps, x)
+                model_pred = self.unet(
+                    latents,
+                    ts,
+                    timestep_cond=w_embedding,
                     encoder_hidden_states=prompt_embeds,
-                    cross_attention_kwargs=cross_attention_kwargs,
-                    return_dict = False,
-                )[0]
-                # perform guidance
-                if do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+                    cross_attention_kwargs=cross_attention_kwargs, 
+                    return_dict=False)[0]
 
                 # compute the previous noisy sample x_t -> x_t-1
-                latents, denoised = self.scheduler.step(model_output=noise_pred, timestep=t, timeindex=i, sample=latents, return_dict = False)
-                # call the callback, if provided
-                if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
-                    progress_bar.update()
-
+                latents, denoised = self.scheduler.step(model_pred, i, t, latents, return_dict=False)
+                
+                # # call the callback, if provided
+                # if i == len(timesteps) - 1:
+                progress_bar.update()
             
-            denoised = denoised.to(prompt_embeds.dtype)
-
+        if not output_type == "latent":
             image = self.vae.decode(denoised / self.vae.config.scaling_factor, return_dict=False)[0]
             image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
-
+        else:
+            image = denoised
+            has_nsfw_concept = None
 
         if has_nsfw_concept is None:
             do_denormalize = [True] * image.shape[0]
