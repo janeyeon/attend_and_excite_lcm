@@ -28,33 +28,10 @@ from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionS
 
 from utils.gaussian_smoothing import GaussianSmoothing
 from utils.ptp_utils import AttentionStore, aggregate_attention
-import itertools
-
-import spacy
-from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import (
-    EXAMPLE_DOC_STRING,
-    rescale_noise_cfg
-)
-# from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_attend_and_excite import (
-#     AttentionStore,
-#     AttendExciteAttnProcessor
-# )
-import numpy as np
-from diffusers.schedulers import KarrasDiffusionSchedulers
-from diffusers.utils import (
-    logging,
-    replace_example_docstring,
-)
-from transformers import CLIPImageProcessor, CLIPTextModel, CLIPTokenizer
-# from gaussian_smoothing import GaussianSmoothing
-
-
-from compute_loss import get_attention_map_index_to_wordpiece, split_indices, calculate_positive_loss, calculate_negative_loss, get_indices, start_token, end_token, align_wordpieces_indices, extract_attribution_indices, extract_attribution_indices_with_verbs, extract_attribution_indices_with_verb_root
-from concentration_loss import calculate_concentration_loss_syngen
 
 logger = logging.get_logger(__name__)
 
-class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
+class AttendAndExcitePipeline(StableDiffusionPipeline):
     r"""
     Pipeline for text-to-image generation using Stable Diffusion.
     This model inherits from [`DiffusionPipeline`]. Check the superclass documentation for the generic methods the
@@ -80,20 +57,6 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             Model that extracts features from generated images to be used as inputs for the `safety_checker`.
     """
     _optional_components = ["safety_checker", "feature_extractor"]
-        
-
-    @staticmethod
-    def _update_syngen_latent(
-            latents: torch.Tensor, loss: torch.Tensor, step_size: float
-    ) -> torch.Tensor:
-        """Update the latent according to the computed loss."""
-        grad_cond = torch.autograd.grad(
-            loss.requires_grad_(True), [latents], retain_graph=True,  allow_unused=True
-        )[0]
-        latents = latents - step_size * grad_cond
-        return latents
-
-
 
     def _encode_prompt(
         self,
@@ -247,8 +210,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
                 prompt = self.prompt[0]
             last_idx = len(self.tokenizer(prompt)['input_ids']) - 1
         attention_for_text = attention_maps[:, :, 1:last_idx]
-        # attention_for_text *= 100
-        attention_for_text = attention_for_text * 100
+        attention_for_text *= 100
         attention_for_text = torch.nn.functional.softmax(attention_for_text, dim=-1)
 
         # Shift indices since we removed the first token
@@ -386,40 +348,8 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         loss, losses = self._compute_loss(max_attention_per_index, return_losses=True)
         print(f"\t Finished with loss of: {loss}")
         return loss, latents, max_attention_per_index
-    
-    def _aggregate_and_get_attention_maps_per_token(self,
-                                                    attention_store: AttentionStore,
-                                                   attention_res: int = 24):
-        
-        # attention_maps = self.attention_store.aggregate_attention(
-        #     from_where=("up", "down", "mid"),
-        # )
-
-        attention_maps = aggregate_attention(
-            attention_store=attention_store,
-            res=attention_res,
-            from_where=("up", "down", "mid"),
-            is_cross=True,
-            select=0)
-
-        attention_maps_list = self._get_attention_maps_list(
-            attention_maps=attention_maps
-        )
-        return attention_maps_list
-    
-    def _get_attention_maps_list(
-            self, attention_maps: torch.Tensor
-    ) -> List[torch.Tensor]:
-        # attention_maps *= 100
-        attention_maps = attention_maps * 100
-        attention_maps_list = [
-            attention_maps[:, :, i] for i in range(attention_maps.shape[2])
-        ]
-
-        return attention_maps_list
 
     @torch.no_grad()
-    @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
             self,
             prompt: Union[str, List[str]],
@@ -451,8 +381,6 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             sigma: float = 0.5,
             kernel_size: int = 3,
             sd_2_1: bool = False,
-            tokenizer = None,
-            config = None # jubin change
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -525,27 +453,8 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         # 0. Default height and width to unet
         #height = height or self.unet.config.sample_size * self.vae_scale_factor
         #width = width or self.unet.config.sample_size * self.vae_scale_factor
-        self.tokenizer = tokenizer
-        self.parser = spacy.load("en_core_web_trf")
-        # self.subtrees_indices = None
-        # self.doc = None
         height = 768
         width = 768
-        self.subtrees_indices = None
-        num_inference_steps = 4
-        self.exp_config = config
-        
-        self.doc = self.parser(prompt[0])
-        print("Parsed prompt:",self.doc) # Jubin changed
-        self.subtrees_indices = self._extract_attribution_indices(prompt)
-        subtrees_indices = self.subtrees_indices
-        
-        if indices_to_alter == []: # Jubin changed
-            for subtree_indices in subtrees_indices:
-                noun, modifier = split_indices(subtree_indices)
-                indices_to_alter.append(noun[0])
-
-        print(f"Indices to alter: {indices_to_alter}")
         
         # 1. Check inputs. Raise error if not correct
         self.check_inputs(
@@ -562,9 +471,10 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             batch_size = prompt_embeds.shape[0]
 
         device = self._execution_device
-        guidance_scale = 2.5
+        guidance_scale =2.5
+        # guidance_scale =1
         # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
-        # of the Imagen paper https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
+        # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
         # corresponds to doing no classifier free guidance.
         do_classifier_free_guidance = guidance_scale > 1.0
 
@@ -580,7 +490,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         )
 
         # 4. Prepare timesteps
-        self.scheduler.set_timesteps(num_inference_steps, device=device)
+        self.scheduler.set_timesteps(4, device=device)
         timesteps = self.scheduler.timesteps
 
         # 5. Prepare latent variables
@@ -596,26 +506,6 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             latents,
         )
 
-        # # NEW - stores the attention calculated in the unet
-        # if attn_res is None:
-        #     attn_res = int(np.ceil(width / 32)), int(np.ceil(height / 32))
-        # self.attention_store = AttentionStore(attn_res)
-        # self.register_attention_control()
-
-        #  # NEW
-        text_embeddings = (
-            prompt_embeds[batch_size * num_images_per_prompt:] if do_classifier_free_guidance else prompt_embeds
-        )
-
-        syngen_step_size = 20.0
-        attn_res = (24, 24)
-        if attn_res is None:
-            attn_res = int(np.ceil(width / 32)), int(np.ceil(height / 32))
-        # attention_store = AttentionStore(attn_res)
-        # self.register_attention_control(attention_store)
-
-
-
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
 
@@ -628,87 +518,57 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         num_warmup_steps = len(timesteps) - 4 * self.scheduler.order
         with self.progress_bar(total=4) as progress_bar:
             for i, t in enumerate(timesteps):
-                ## calculate loss when 'highlight' in the ablation study, Else only apply CFG
-                if 'highlight' in self.exp_config.method: # Jubin changed
-                    with torch.enable_grad():
 
-                        latents = latents.clone().detach().requires_grad_(True)
+                with torch.enable_grad():
 
-                        # Forward pass of denoising with text conditioning
-                        # noise_pred_text = self.unet(latents, t,
-                        #                             encoder_hidden_states=prompt_embeds, cross_attention_kwargs=cross_attention_kwargs).sample
-                        noise_pred_text = self.unet(latents, t,
-                                                    encoder_hidden_states=text_embeddings, cross_attention_kwargs=cross_attention_kwargs).sample
-                        self.unet.zero_grad()
+                    latents = latents.clone().detach().requires_grad_(True)
 
-                        # Get max activation value for each subject token
-                        max_attention_per_index = self._aggregate_and_get_max_attention_per_token(
-                            attention_store=attention_store,
-                            indices_to_alter=indices_to_alter,
-                            attention_res=attention_res,
-                            smooth_attentions=smooth_attentions,
-                            sigma=sigma,
-                            kernel_size=kernel_size,
-                            normalize_eot=sd_2_1)
+                    # Forward pass of denoising with text conditioning
+                    noise_pred_text = self.unet(latents, t,
+                                                encoder_hidden_states=prompt_embeds[1].unsqueeze(0), cross_attention_kwargs=cross_attention_kwargs).sample
+                    self.unet.zero_grad()
 
-                        if not run_standard_sd:
+                    # Get max activation value for each subject token
+                    max_attention_per_index = self._aggregate_and_get_max_attention_per_token(
+                        attention_store=attention_store,
+                        indices_to_alter=indices_to_alter,
+                        attention_res=attention_res,
+                        smooth_attentions=smooth_attentions,
+                        sigma=sigma,
+                        kernel_size=kernel_size,
+                        normalize_eot=sd_2_1)
 
+                    if not run_standard_sd:
+
+                        loss = self._compute_loss(max_attention_per_index=max_attention_per_index)
+
+                        # If this is an iterative refinement step, verify we have reached the desired threshold for all
+                        if i in thresholds.keys() and loss > 1. - thresholds[i]:
+                            del noise_pred_text
+                            torch.cuda.empty_cache()
+                            loss, latents, max_attention_per_index = self._perform_iterative_refinement_step(
+                                latents=latents,
+                                indices_to_alter=indices_to_alter,
+                                loss=loss,
+                                threshold=thresholds[i],
+                                text_embeddings=prompt_embeds,
+                                text_input=text_inputs,
+                                attention_store=attention_store,
+                                step_size=scale_factor * np.sqrt(scale_range[i]),
+                                t=t,
+                                attention_res=attention_res,
+                                smooth_attentions=smooth_attentions,
+                                sigma=sigma,
+                                kernel_size=kernel_size,
+                                normalize_eot=sd_2_1)
+
+                        # Perform gradient update
+                        if i < max_iter_to_alter:
                             loss = self._compute_loss(max_attention_per_index=max_attention_per_index)
-
-
-                            # if i < 25:
-                            #     # attention2Orig(self, mod_orig
-
-
-                            print(f"enter syngen step!!!!!")
-                            syngen_loss = self._syngen_step(
-                                latents,
-                                text_embeddings,
-                                # prompt_embeds,
-                                t,
-                                i,
-                                syngen_step_size,
-                                cross_attention_kwargs,
-                                prompt,
-                                max_iter_to_alter=25,
-                                # layouts=layouts, 
-                                # layout_count=layout_count, 
-                                attention_store=attention_store, 
-                                timestep = i
-                            )
-
-
-
-
-                            # If this is an iterative refinement step, verify we have reached the desired threshold for all
-                            if i in thresholds.keys() and loss > 1. - thresholds[i]:
-                                del noise_pred_text
-                                torch.cuda.empty_cache()
-                                loss, latents, max_attention_per_index = self._perform_iterative_refinement_step(
-                                    latents=latents,
-                                    indices_to_alter=indices_to_alter,
-                                    loss=loss,
-                                    threshold=thresholds[i],
-                                    # text_embeddings=prompt_embeds,
-                                    text_embeddings=text_embeddings,
-                                    text_input=text_inputs,
-                                    attention_store=attention_store,
-                                    step_size=scale_factor * np.sqrt(scale_range[i]),
-                                    t=t,
-                                    attention_res=attention_res,
-                                    smooth_attentions=smooth_attentions,
-                                    sigma=sigma,
-                                    kernel_size=kernel_size,
-                                    normalize_eot=sd_2_1)
-
-                            # Perform gradient update
-                            if i < max_iter_to_alter:
-                                loss = self._compute_loss(max_attention_per_index=max_attention_per_index)
-                                loss = loss + syngen_loss
-                                if loss != 0:
-                                    latents = self._update_latent(latents=latents, loss=loss,
-                                                                  step_size=scale_factor * np.sqrt(scale_range[i]))
-                                print(f'Iteration {i} | Loss: {loss:0.4f}')
+                            if loss != 0:
+                                latents = self._update_latent(latents=latents, loss=loss,
+                                                              step_size=scale_factor * np.sqrt(scale_range[i]))
+                            print(f'Iteration {i} | Loss: {loss:0.4f}')
 
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
@@ -751,213 +611,3 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             return (image, has_nsfw_concept)
 
         return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
-
-
-
-    def _syngen_step(
-            self,
-            latents,
-            text_embeddings,
-            t,
-            i,
-            step_size,
-            cross_attention_kwargs,
-            prompt,
-            max_iter_to_alter=25,
-            attention_store=None, 
-            timestep=None
-
-    ):
-        with torch.enable_grad():
-            # latents = latents.clone().detach().requires_grad_(True)
-            updated_latents = []
-            for latent, text_embedding in zip(latents, text_embeddings):
-                # Forward pass of denoising with text conditioning
-                latent = latent.unsqueeze(0)
-                text_embedding = text_embedding.unsqueeze(0)
-
-                self.unet(
-                    latent,
-                    t,
-                    encoder_hidden_states=text_embedding,
-                    cross_attention_kwargs=cross_attention_kwargs,
-                    return_dict=False,
-                )[0]
-                self.unet.zero_grad()
-                # Get attention maps
-                attention_maps = self._aggregate_and_get_attention_maps_per_token(attention_store=attention_store)
-                
-                loss = self._compute_syngen_loss(attention_maps=attention_maps, prompt=prompt, timestep=timestep)
-
-        return loss
-
-
-    def _compute_syngen_loss(
-            self, attention_maps: List[torch.Tensor], prompt: Union[str, List[str]], timestep
-    ) -> torch.Tensor:
-        attn_map_idx_to_wp = get_attention_map_index_to_wordpiece(self.tokenizer, prompt)
-        loss = self._attribution_loss(attention_maps, prompt, attn_map_idx_to_wp, timestep)
-
-        return loss
-    
-    def _extract_attribution_indices(self, prompt):
-        print(f"prompt: {prompt}, doc {self.doc}")
-        # extract standard attribution indices
-        pairs = extract_attribution_indices(self.doc)
-
-        # extract attribution indices with verbs in between
-        pairs_2 = extract_attribution_indices_with_verb_root(self.doc)
-        pairs_3 = extract_attribution_indices_with_verbs(self.doc)
-        # make sure there are no duplicates
-        pairs = unify_lists(pairs, pairs_2, pairs_3)
-
-
-        print(f"Final pairs collected: {pairs}")
-        # prompt = (prompt)
-        prompt = prompt[0]
-        paired_indices = self._align_indices(prompt, pairs)
-        # paired_indices = [[2, 3], [6, 7]]
-        print(f"paired_indices: {paired_indices}")
-        return paired_indices
-
-
-
-    def _attribution_loss(
-            self,
-            attention_maps: List[torch.Tensor],
-            prompt: Union[str, List[str]],
-            attn_map_idx_to_wp,
-            timestep
-    ) -> torch.Tensor:
-        if not self.subtrees_indices:
-          self.subtrees_indices = self._extract_attribution_indices(prompt)
-        subtrees_indices = self.subtrees_indices
-        # subtrees_indices = indices_to_altert
-        loss = 0
-
-        for subtree_indices in subtrees_indices:
-            noun, modifier = split_indices(subtree_indices)
-            all_subtree_pairs = list(itertools.product(noun, modifier))
-            positive_loss, negative_loss, concentration_loss = self._calculate_losses(
-                attention_maps,
-                all_subtree_pairs,
-                subtree_indices,
-                attn_map_idx_to_wp,
-            )
-            # loss += positive_loss
-            loss = loss + positive_loss * 2
-            loss = loss + negative_loss
-            
-            # con_factor = 10 ** ((8 - timestep)/8)
-            con_factor = 10
-            loss = loss + concentration_loss * con_factor
-
-        return loss
-
-    def _calculate_losses(
-            self,
-            attention_maps,
-            all_subtree_pairs,
-            subtree_indices,
-            attn_map_idx_to_wp,
-    ):
-        positive_loss = []
-        negative_loss = []
-        concentration_loss = []
-        for pair in all_subtree_pairs:
-            noun, modifier = pair
-            positive_loss.append(
-                calculate_positive_loss(attention_maps, modifier, noun)
-            )
-            negative_loss.append(
-                calculate_negative_loss(
-                    attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp
-                )
-                # []
-            )
-
-            concentration_loss.append(
-                calculate_concentration_loss_syngen(
-                    attention_maps, modifier, noun
-                )
-            )
-
-        positive_loss = sum(positive_loss) if 'pair' in self.exp_config.method else 0 # Jubin changed
-        negative_loss = sum(negative_loss) if 'pair' in self.exp_config.method else 0 # Jubin changed
-        concentration_loss = sum(concentration_loss) if 'concent' in self.exp_config.method else 0 # Jubin changed
-
-        return positive_loss, negative_loss, concentration_loss
-
-
-
-    def _align_indices(self, prompt, spacy_pairs):
-        print(f"prompt: {prompt}, {type(prompt)}")
-        wordpieces2indices = get_indices(self.tokenizer, prompt)
-        paired_indices = []
-        collected_spacy_indices = (
-            set()
-        )  # helps track recurring nouns across different relations (i.e., cases where there is more than one instance of the same word)
-
-        for pair in spacy_pairs:
-            curr_collected_wp_indices = (
-                []
-            )  # helps track which nouns and amods were added to the current pair (this is useful in sentences with repeating amod on the same relation (e.g., "a red red red bear"))
-            for member in pair:
-                for idx, wp in wordpieces2indices.items():
-                    if wp in [start_token, end_token]:
-                        continue
-
-                    wp = wp.replace("</w>", "")
-                    if member.text == wp:
-                        if idx not in curr_collected_wp_indices and idx not in collected_spacy_indices:
-                            curr_collected_wp_indices.append(idx)
-                            break
-                    # take care of wordpieces that are split up
-                    elif member.text.startswith(wp) and wp != member.text:  # can maybe be while loop
-                        wp_indices = align_wordpieces_indices(
-                            wordpieces2indices, idx, member.text
-                        )
-                        # check if all wp_indices are not already in collected_spacy_indices
-                        if wp_indices and (wp_indices not in curr_collected_wp_indices) and all([wp_idx not in collected_spacy_indices for wp_idx in wp_indices]):
-                            curr_collected_wp_indices.append(wp_indices)
-                            break
-
-            for collected_idx in curr_collected_wp_indices:
-                if isinstance(collected_idx, list):
-                    for idx in collected_idx:
-                        collected_spacy_indices.add(idx)
-                else:
-                    collected_spacy_indices.add(collected_idx)
-
-            paired_indices.append(curr_collected_wp_indices)
-
-        return paired_indices
-
-
-   
-def is_sublist(sub, main):
-    # This function checks if 'sub' is a sublist of 'main'
-    return len(sub) < len(main) and all(item in main for item in sub)
-
-def unify_lists(lists_1, lists_2, lists_3):
-    unified_list = lists_1 + lists_2 + lists_3
-    sorted_list = sorted(unified_list, key=len)
-    seen = set()
-
-    result = []
-
-    for i in range(len(sorted_list)):
-        if tuple(sorted_list[i]) in seen:  # Skip if already added
-            continue
-
-        sublist_to_add = True
-        for j in range(i + 1, len(sorted_list)):
-            if is_sublist(sorted_list[i], sorted_list[j]):
-                sublist_to_add = False
-                break
-
-        if sublist_to_add:
-            result.append(sorted_list[i])
-            seen.add(tuple(sorted_list[i]))
-
-    return result

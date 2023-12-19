@@ -1,5 +1,7 @@
 import pprint
 from typing import List
+import time
+from tqdm import tqdm
 import pyrallis
 import torch
 from PIL import Image
@@ -22,13 +24,21 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 def load_model(config: RunConfig):
+    def disabled_safety_checker(images, clip_input):
+        if len(images.shape)==4:
+            num_images = images.shape[0]
+            return images, [False]*num_images
+        else:
+            return images, False
     device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="safety_checker")
-    stable = AttendAndExciteSynGenPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7",safety_checker=safety_checker, dtype=torch.float32).to(device)
+    # safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="safety_checker")
+    stable = AttendAndExciteSynGenPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", dtype=torch.float32).to(device)
     tokenizer = stable.tokenizer
     print(F"tokenizer: {type(tokenizer)}")
     stable.scheduler = LCMScheduler.from_config(stable.scheduler.config)
-    stable.scheduler.set_timesteps(num_inference_steps=config.n_inference_steps,                                   original_inference_steps=50,device=device)
+    stable.scheduler.set_timesteps(num_inference_steps=config.n_inference_steps,original_inference_steps=50,device=device)
+    stable.safety_checker = disabled_safety_checker
+
     return stable
 
 
@@ -90,7 +100,8 @@ def main(config: RunConfig):
     dataset = pd.read_csv(config.dataset_path) # jubin change
     dataset_name = config.dataset_path.split("/")[-1].split('.')[0] # jubin change
     ts = time.time()
-    for i in tqdm(range(len(dataset)), desc="Prompt idx"):               
+    for i in tqdm(range(len(dataset)), desc="Prompt idx"):
+        i = config.idx if config.idx != -1 else i
         config.prompt = dataset.iloc[i].prompt # jubin change
         token_indices = dataset.iloc[i].item_indices # jubin change
         token_indices = eval(token_indices) if isinstance(token_indices, str) else token_indices # jubin change
@@ -102,28 +113,29 @@ def main(config: RunConfig):
             if img_path.exists(): # jubin change
                 continue          # jubin change
             print(f"Seed: {seed}")
-            try:
-                ts = time.time()
-                g = torch.Generator('cuda').manual_seed(seed)
-                controller = AttentionStore()
-                image = run_on_prompt(prompt=config.prompt,
-                                      model=stable,
-                                      controller=controller,
-                                      token_indices=token_indices,
-                                      seed=g,
-                                      config=config)
-                te = time.time() # jubin change
-                time_total += (te-ts) # jubin change
-                count += 1 # jubin change 
-                if config.debug:
-                    break
-                image.save(img_path)
 
-            except: # jubin change
-                print('FAILED:',i, config.prompt) # jubin change
-                failed_idx.append(f"{i}_{seed}") # jubin change
-        if config.debug:
+            ts = time.time()
+            g = torch.Generator('cuda').manual_seed(seed)
+            controller = AttentionStore()
+            image = run_on_prompt(prompt=config.prompt,
+                                  model=stable,
+                                  controller=controller,
+                                  token_indices=token_indices,
+                                  seed=g,
+                                  config=config)
+            te = time.time() # jubin change
+            time_total += (te-ts) # jubin change
+            count += 1 # jubin change 
+            image.save(img_path)
+            if config.debug or (config.idx != -1):
+                break
+
+            # except: # jubin change
+            #     print('FAILED:',i, config.prompt) # jubin change
+            #     failed_idx.append(f"{i}_{seed}") # jubin change
+        if config.debug or (config.idx != -1): 
             break
+            
     te = time.time() # jubin change
     print(f"*** Total time spent: {time_total:.4f} ***") # jubin change
     print(f"*** For one image: {time_total/count:.4f}") # jubin change
