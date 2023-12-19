@@ -88,7 +88,7 @@ def run_on_prompt(prompt: str,
 
 @pyrallis.wrap()
 def main(config: RunConfig):
-    METHOD = config.method.split("_")[-1] # jubin change
+    METHOD = "ours_LCM" # jubin change
     stable = load_model(config)
     images = []
 
@@ -108,7 +108,7 @@ def main(config: RunConfig):
             # seed = random.randint(0, 10000000)
             dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}" # jubin change
             dataset_prompt_output_path.mkdir(exist_ok=True, parents=True) # jubin change
-            img_path = dataset_prompt_output_path / f'ablation_{METHOD}_{seed}.png' # jubin change
+            img_path = dataset_prompt_output_path / f'{METHOD}_{seed}.png' # jubin change
             # if img_path.exists(): # jubin change
             #     continue          # jubin change
             print(f"Seed: {seed}")
@@ -140,8 +140,8 @@ def main(config: RunConfig):
     with open(f"{config.output_path}/Time_{METHOD}_{dataset_name}.txt", 'w') as f: # jubin change
         f.write(f"{time_total/count:.4f}") # jubin change
         
-    print("Failed prompt idx & seed") # jubin change
-    print(failed_idx) # jubin change
+    # print("Failed prompt idx & seed") # jubin change
+    # print(failed_idx) # jubin change
     
 if __name__ == '__main__':
     main()

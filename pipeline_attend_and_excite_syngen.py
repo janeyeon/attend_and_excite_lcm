@@ -334,6 +334,8 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             iteration += 1
 
             latents = latents.clone().detach().requires_grad_(True)
+            print("*** _perform_iterative_refinement_step ***")
+            print(text_embeddings.shape)
             noise_pred_text = self.unet(latents, t, encoder_hidden_states=text_embeddings[1].unsqueeze(0)).sample
             self.unet.zero_grad()
 
@@ -359,7 +361,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
 
             try:
                 low_token = np.argmax([l.item() if type(l) != int else l for l in losses])
-            except Exception as e:
+            except Exception as e:F
                 print(e)  # catch edge case :)
                 low_token = np.argmax(losses)
 

@@ -1,4 +1,4 @@
-
+import pdb
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 
@@ -332,7 +332,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             iteration += 1
 
             latents = latents.clone().detach().requires_grad_(True)
-            noise_pred_text = self.unet(latents, t, encoder_hidden_states=text_embeddings[1].unsqueeze(0)).sample
+            noise_pred_text = self.unet(latents, t, encoder_hidden_states=text_embeddings[-1].unsqueeze(0)).sample
             self.unet.zero_grad()
 
             # Get max activation value for each subject token
@@ -372,7 +372,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         # Run one more time but don't compute gradients and update the latents.
         # We just need to compute the new loss - the grad update will occur below
         latents = latents.clone().detach().requires_grad_(True)
-        noise_pred_text = self.unet(latents, t, encoder_hidden_states=text_embeddings[1].unsqueeze(0)).sample
+        noise_pred_text = self.unet(latents, t, encoder_hidden_states=text_embeddings[-1].unsqueeze(0)).sample
         self.unet.zero_grad()
 
         # Get max activation value for each subject token
@@ -541,10 +541,11 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         self.subtrees_indices = self._extract_attribution_indices(prompt)
         subtrees_indices = self.subtrees_indices
         
-        if indices_to_alter == []: # Jubin changed
-            for subtree_indices in subtrees_indices:
-                noun, modifier = split_indices(subtree_indices)
-                indices_to_alter.append(noun[0])
+        indices_to_alter = [ paired_indices[-1] for paired_indices in self._extract_attribution_indices(prompt) ] # jubin changed
+        # if indices_to_alter == []: # Jubin changed
+        #     for subtree_indices in subtrees_indices:
+        #         noun, modifier = split_indices(subtree_indices)
+        #         indices_to_alter.append(noun[0])
 
         print(f"Indices to alter: {indices_to_alter}")
         
@@ -831,7 +832,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
             timestep
     ) -> torch.Tensor:
         if not self.subtrees_indices:
-          self.subtrees_indices = self._extract_attribution_indices(prompt)
+            self.subtrees_indices = self._extract_attribution_indices(prompt)
         subtrees_indices = self.subtrees_indices
         # subtrees_indices = indices_to_altert
         loss = 0

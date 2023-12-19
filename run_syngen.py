@@ -84,7 +84,7 @@ def main(config: RunConfig):
     
     # for seed in config.seeds:
     # seed_list = np.random.randint(low=0,high=1000000, size=(100))
-    for _ in range(15):
+    for _ in range(1):
         seed = random.randint(0, 10000000)
         print(f"Seed: {seed}")
         g = torch.Generator('cuda').manual_seed(seed)
