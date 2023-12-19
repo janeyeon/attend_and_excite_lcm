@@ -291,6 +291,7 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
     @staticmethod
     def _compute_loss(max_attention_per_index: List[torch.Tensor], return_losses: bool = False) -> torch.Tensor:
         """ Computes the attend-and-excite loss using the maximum attention value for each token. """
+        print("*** Highlight loss calculated ***")
         losses = [max(0, 1. - curr_max) for curr_max in max_attention_per_index]
         loss = max(losses)
         if return_losses:
@@ -866,25 +867,27 @@ class AttendAndExciteSynGenPipeline(StableDiffusionPipeline):
         concentration_loss = []
         for pair in all_subtree_pairs:
             noun, modifier = pair
-            positive_loss.append(
-                calculate_positive_loss(attention_maps, modifier, noun)
-            )
-            negative_loss.append(
-                calculate_negative_loss(
-                    attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp
+            if 'pair' in self.exp_config.method: # Jubin changed
+                print("*** Pairwise loss calculated ***")
+                positive_loss.append(
+                    calculate_positive_loss(attention_maps, modifier, noun)
                 )
-                # []
-            )
-
-            concentration_loss.append(
-                calculate_concentration_loss_syngen(
-                    attention_maps, modifier, noun
+                negative_loss.append(
+                    calculate_negative_loss(
+                        attention_maps, modifier, noun, subtree_indices, attn_map_idx_to_wp
+                    )
                 )
-            )
+            if 'concent' in self.exp_config.method:
+                print("*** Concentration loss calculated ***")
+                concentration_loss.append(
+                    calculate_concentration_loss_syngen(
+                        attention_maps, modifier, noun
+                    )
+                )
 
-        positive_loss = sum(positive_loss) if 'pair' in self.exp_config.method else 0 # Jubin changed
-        negative_loss = sum(negative_loss) if 'pair' in self.exp_config.method else 0 # Jubin changed
-        concentration_loss = sum(concentration_loss) if 'concent' in self.exp_config.method else 0 # Jubin changed
+        positive_loss = sum(positive_loss) 
+        negative_loss = sum(negative_loss)  
+        concentration_loss = sum(concentration_loss) 
 
         return positive_loss, negative_loss, concentration_loss
 

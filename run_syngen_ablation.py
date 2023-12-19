@@ -21,7 +21,7 @@ import pandas as pd
 import random
 
 warnings.filterwarnings("ignore", category=UserWarning)
-
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def load_model(config: RunConfig):
     def disabled_safety_checker(images, clip_input):
@@ -34,7 +34,6 @@ def load_model(config: RunConfig):
     # safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="safety_checker")
     stable = AttendAndExciteSynGenPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", dtype=torch.float32).to(device)
     tokenizer = stable.tokenizer
-    print(F"tokenizer: {type(tokenizer)}")
     stable.scheduler = LCMScheduler.from_config(stable.scheduler.config)
     stable.scheduler.set_timesteps(num_inference_steps=config.n_inference_steps,original_inference_steps=50,device=device)
     stable.safety_checker = disabled_safety_checker
@@ -89,7 +88,7 @@ def run_on_prompt(prompt: str,
 
 @pyrallis.wrap()
 def main(config: RunConfig):
-    METHOD = config.method # jubin change
+    METHOD = config.method.split("") # jubin change
     stable = load_model(config)
     images = []
 
@@ -109,7 +108,7 @@ def main(config: RunConfig):
             seed = random.randint(0, 10000000)
             dataset_prompt_output_path = config.output_path / dataset_name / f"{i:003}" # jubin change
             dataset_prompt_output_path.mkdir(exist_ok=True, parents=True) # jubin change
-            img_path = dataset_prompt_output_path / f'ablation_{METHOD}_{config.model}_{seed}.png' # jubin change
+            img_path = dataset_prompt_output_path / f'ablation_{METHOD}_{seed}.png' # jubin change
             if img_path.exists(): # jubin change
                 continue          # jubin change
             print(f"Seed: {seed}")
@@ -127,8 +126,6 @@ def main(config: RunConfig):
             time_total += (te-ts) # jubin change
             count += 1 # jubin change 
             image.save(img_path)
-            if config.debug or (config.idx != -1):
-                break
 
             # except: # jubin change
             #     print('FAILED:',i, config.prompt) # jubin change
@@ -139,7 +136,7 @@ def main(config: RunConfig):
     te = time.time() # jubin change
     print(f"*** Total time spent: {time_total:.4f} ***") # jubin change
     print(f"*** For one image: {time_total/count:.4f}") # jubin change
-    with open(f"{config.output_path}/Time_{METHOD}_{config.model}_{dataset_name}.txt", 'w') as f: # jubin change
+    with open(f"{config.output_path}/Time_{METHOD}_{dataset_name}.txt", 'w') as f: # jubin change
         f.write(f"{time_total/count:.4f}") # jubin change
         
     print("Failed prompt idx & seed") # jubin change
